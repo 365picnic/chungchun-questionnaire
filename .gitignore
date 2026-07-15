@@ -1,0 +1,10 @@
+# 환자 개인정보가 담긴 로컬 데이터베이스는 깃허브(공개 저장소)에 올리지 않는다
+questionnaire.db
+*.db
+
+__pycache__/
+*.pyc
+.DS_Store
+
+# 로컬 Claude Code 설정 (저장소에 올릴 필요 없음)
+.claude/

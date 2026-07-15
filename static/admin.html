@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청춘한의원 - 문진 관리</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: #eef1f5; color: #333; font-size: 13px; }
+
+/* Top Bar */
+.topbar { background: #fff; border-bottom: 1px solid #ddd; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; height: 44px; }
+.topbar .left { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #666; }
+.topbar .right { display: flex; align-items: center; gap: 12px; }
+.topbar .refresh-btn { background: #3a7bd5; color: #fff; border: none; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.topbar .auto-lbl { font-size: 12px; color: #666; display: flex; align-items: center; gap: 4px; }
+.topbar .auto-lbl input { width: 14px; height: 14px; }
+
+/* Layout */
+.layout { display: flex; height: calc(100vh - 44px); }
+.sidebar { width: 260px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+.sidebar-hdr { padding: 10px; border-bottom: 1px solid #eee; }
+.sidebar-hdr input { width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+.p-list { flex: 1; overflow-y: auto; }
+.p-item { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+.p-item:hover { background: #f4f7fb; }
+.p-item.active { background: #e0eaf6; border-left: 3px solid #3a7bd5; }
+.p-item .nm { font-weight: 600; font-size: 13px; }
+.p-item .inf { font-size: 11px; color: #888; margin-top: 2px; }
+.p-item .tm { font-size: 10px; color: #aaa; margin-top: 1px; }
+.p-item .badge { background: #e74c3c; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+.p-item .badge-done { background: #27ae60; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+
+/* Main Content */
+.content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.empty-msg { text-align: center; padding: 80px; color: #aaa; font-size: 15px; }
+
+/* Patient Header */
+.pt-header { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px 20px; margin-bottom: 12px; }
+.pt-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.pt-name { font-size: 20px; font-weight: 700; color: #222; }
+.pt-name .age { font-size: 14px; color: #666; font-weight: 400; margin-left: 4px; }
+.pt-meta { display: flex; gap: 20px; font-size: 13px; }
+.pt-meta .m-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pt-meta .m-label { font-size: 10px; color: #999; }
+.pt-meta .m-val { font-weight: 600; color: #333; }
+.pt-right { display: flex; gap: 8px; }
+.btn-print { background: #3a7bd5; color: #fff; border: none; padding: 7px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.btn-print:hover { background: #2d6bc4; }
+
+/* BMI Section */
+.bmi-section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 14px 20px; margin-bottom: 12px; }
+.bmi-title { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
+.bmi-bar { display: flex; gap: 8px; align-items: flex-end; justify-content: center; }
+.bmi-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 8px 6px; border-radius: 8px; min-width: 75px; cursor: default; }
+.bmi-circle { width: 72px; height: 72px; border-radius: 50%; background: #f0f2f5; display: flex; align-items: center; justify-content: center; border: 2px solid #e0e4ea; }
+.bmi-circle-active { background: #dbe4f0; border: 3px solid #3a7bd5; box-shadow: 0 0 0 3px rgba(58,123,213,0.15); }
+.bmi-item .bmi-label { font-size: 11px; color: #666; white-space: nowrap; font-weight: 500; }
+.bmi-item .bmi-val { font-size: 10px; color: #999; }
+.bmi-item.active .bmi-label { color: #3a7bd5; font-weight: 700; }
+.bmi-item.active .bmi-val { color: #3a7bd5; font-weight: 600; }
+
+/* 형색성정 Section */
+.hss-section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 14px 20px; margin-bottom: 12px; }
+.hss-title { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+.hss-two { display: flex; gap: 24px; }
+.hss-left { flex: 1; }
+.hss-right { flex: 1.2; }
+.hss-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.hss-label { font-size: 12px; color: #666; min-width: 50px; font-weight: 500; }
+.hss-sub { font-size: 11px; color: #333; font-weight: 600; margin-bottom: 6px; }
+.dot-scale { display: flex; align-items: center; gap: 4px; }
+.dot-scale .end-label { font-size: 10px; color: #888; min-width: 32px; }
+.dot-scale .end-label.right { text-align: right; }
+.dot-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc; background: #fff; cursor: pointer; transition: all 0.15s; }
+.dot-btn:hover { border-color: #3a7bd5; }
+.dot-btn.active { background: #1a3a6b; border-color: #1a3a6b; }
+.tag-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-btn { padding: 4px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; cursor: pointer; background: #fff; transition: all 0.15s; }
+.tag-btn:hover { border-color: #3a7bd5; }
+.tag-btn.active { background: #3a7bd5; color: #fff; border-color: #3a7bd5; }
+.anjin-title { font-size: 11px; color: #3a7bd5; font-weight: 600; margin-bottom: 8px; }
+.anjin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.anjin-item { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f5f5f5; }
+.anjin-item .aj-name { font-size: 11px; color: #444; }
+.star-group { display: flex; gap: 1px; }
+.star-btn { font-size: 16px; color: #ddd; cursor: pointer; transition: color 0.1s; line-height: 1; }
+.star-btn.on { color: #f0c040; }
+.star-btn:hover { color: #f0c040; }
+
+/* Two Column Layout */
+.two-col { display: flex; gap: 12px; margin-bottom: 12px; }
+.col-left { flex: 1; }
+.col-right { width: 340px; }
+
+/* 주증상/진료메모 Sidebar */
+.memo-box { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-bottom: 12px; }
+.memo-box h3 { font-size: 13px; font-weight: 700; color: #3a7bd5; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+.memo-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+.memo-row .memo-label { min-width: 30px; font-size: 11px; font-weight: 600; color: #fff; background: #3a7bd5; border-radius: 3px; padding: 2px 6px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+.memo-row .memo-val { font-size: 12px; color: #333; line-height: 1.5; flex: 1; min-height: 20px; }
+.memo-textarea { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 8px; font-size: 12px; resize: vertical; min-height: 80px; font-family: inherit; }
+
+/* Questionnaire Table */
+.q-section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0; overflow: hidden; margin-bottom: 12px; }
+.q-section-title { background: #f8f9fb; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #333; border-bottom: 1px solid #ddd; }
+.q-table { width: 100%; border-collapse: collapse; }
+.q-table tr { border-bottom: 1px solid #f0f0f0; }
+.q-table tr:last-child { border-bottom: none; }
+.q-table .cat-cell { background: #f0f4fa; padding: 8px 12px; font-weight: 700; color: #3a7bd5; font-size: 12px; width: 70px; text-align: center; vertical-align: top; border-right: 1px solid #e0e4ea; }
+.q-table .q-cell { padding: 6px 10px; vertical-align: top; }
+.q-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 4px 0; border-bottom: 1px solid #f5f5f5; }
+.q-row:last-child { border-bottom: none; }
+.q-label { font-size: 12px; color: #555; font-weight: 500; white-space: nowrap; }
+.q-answer { font-size: 12px; display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.q-answer .a-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; }
+.a-fill { background: #3a7bd5; color: #fff; }
+.a-outline { background: #fff; border: 1px solid #ccc; color: #888; }
+.a-check { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.a-text { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; padding: 4px 8px; font-size: 12px; white-space: pre-wrap; display: block; width: 100%; margin-top: 4px; border-radius: 4px; }
+.q-freq { font-size: 11px; color: #e67e22; font-weight: 500; margin-left: 4px; }
+
+/* Extra symptoms */
+.extra-box { background: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; padding: 10px 14px; margin: 8px 12px 12px; font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: #555; }
+
+@media print {
+    .topbar, .sidebar, .btn-print { display: none !important; }
+    .layout { display: block !important; }
+    .content { padding: 0 !important; overflow: visible !important; }
+    .q-section { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="left">
+        <span id="clock"></span>
+        <span style="color:#3a7bd5;font-weight:600;">청춘한의원</span>
+    </div>
+    <div class="right">
+        <label class="auto-lbl"><input type="checkbox" id="auto-chk" checked> 자동 새로고침(10초)</label>
+        <button class="refresh-btn" onclick="loadList()">새로고침</button>
+    </div>
+</div>
+
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-hdr">
+            <input type="text" id="search" placeholder="이름 / 전화번호 검색" oninput="filterList()">
+        </div>
+        <div class="p-list" id="p-list"></div>
+    </div>
+    <div class="content" id="content">
+        <div class="empty-msg">왼쪽에서 환자를 선택해주세요.</div>
+    </div>
+</div>
+
+<script>
+const QL = {
+    sleep_main:"잠을", sleep_severity:"못 자는 정도", sleep_wake:"수면 중 각성",
+    sleep_important:"내일 중요한 일 있으면?", sleep_imp_freq:"10번이면",
+    sleep_imp_extra:"수면 추가", sleep_ok_extra:"수면 양호 특성",
+    sleep_coffee:"커피 마시면", sleep_coffee_heart:"커피→두근거림/손떨림",
+    chest_palp:"가슴이 자주 두근거린다", chest_palp_freq:"두근거림 빈도",
+    chest_tight:"가슴이 막힌 듯 답답하다", chest_tight_freq:"답답함 빈도",
+    chest_tight_extra:"답답할 때", chest_compare:"두근거림vs답답함", chest_pain:"가슴 뻐근한 통증",
+    stool_main:"평소 대변", stool_const_sev:"변비 정도", stool_const_extra:"변비 관련",
+    stool_diarr_freq:"설사 빈도", stool_diarr_cause:"설사 원인",
+    stool_gas:"헛배 부름", stool_gas_freq:"헛배 빈도",
+    digest_main:"평소 소화", digest_sev:"소화불량 정도", digest_cause:"소화불량 원인",
+    digest_symptom:"소화불량 시", appetite:"식욕", appetite_extra:"식욕 추가",
+    cold_heat_main:"추위/더위", cold_sev:"추위 정도", cold_extra:"추위 관련",
+    heat_sev:"더위 정도",
+    hand_temp:"손 온도", hand_cold_sev:"손 찬 정도", hand_hot_freq:"손 열감 빈도",
+    foot_temp:"발 온도", foot_cold_sev:"발 찬 정도", foot_hot_freq:"발 열감 빈도",
+    lower_belly:"아랫배 냉감", belly_warm:"아랫배 온찜질", belly_warm2:"아랫배 온찜질",
+    face_heat:"상열감", face_heat_when:"상열감 시기",
+    sweat_main:"평소 땀", sweat_area:"다한 부위", sweat_area2:"다한 부위",
+    sauna:"사우나 후",
+    edema:"부종", edema_extra:"부종 관련", dizzy:"현훈(어지러움)",
+    urine_freq:"소변 횟수", urine_night:"야간뇨", urine_residual:"잔뇨감", urine_res_freq:"잔뇨감 빈도",
+    water_main:"음수량", water_reason:"음수 이유", water_temp:"선호 수온",
+    alcohol_freq:"음주 빈도", alcohol_effect:"소량 음주 반응", liver:"간 관련",
+    nausea:"속메스꺼움", nausea_when:"메스꺼움 시기",
+    heartburn:"속쓰림", heartburn_when:"속쓰림 시기", heartburn_spicy:"자극 음식 회피",
+    menstrual_main:"생리 불편", menstrual_pain:"생리통", menstrual_extra:"생리 관련",
+    cold_main:"감기 유형", cold_body:"몸살 감기", cold_throat:"목감기",
+    throat_main:"피로 시 목/입술", throat_phlegm:"가래", throat_phlegm_extra:"가래 관련",
+    neck_pain:"뒷목/어깨 통증", neck_pain_freq:"통증 빈도",
+    breath:"숨참", breath_sev:"숨참 정도", breath_when:"숨참 시기",
+    stamina:"체력",
+    emo_irritable:"신경질/짜증", emo_express:"불만 바로 표현", emo_suppress:"화 삭힘", emo_endure:"불만 참음",
+    emo_uneasy:"불안", emo_fearful:"겁이 많음", emo_horror:"무서운 장면 못봄", emo_ride:"놀이기구 못탐", emo_bug:"벌레 무서움",
+    emo_overthink:"걱정 많음", emo_health_worry:"건강염려", emo_depressed:"우울감", emo_lethargic:"무기력",
+    emo_sensitive_nerve:"신경 예민", emo_tense:"긴장 많음", emo_stage_fright:"대중발표 긴장"
+};
+
+const EMO_KEYS = ["emo_irritable","emo_express","emo_suppress","emo_endure","emo_uneasy","emo_fearful","emo_horror","emo_ride","emo_bug","emo_overthink","emo_health_worry","emo_depressed","emo_lethargic","emo_sensitive_nerve","emo_tense","emo_stage_fright"];
+
+const CATS = [
+    {name:"잠",keys:["sleep_main","sleep_severity","sleep_wake","sleep_important","sleep_imp_freq","sleep_imp_extra","sleep_ok_extra","sleep_coffee","sleep_coffee_heart"]},
+    {name:"흉부",keys:["chest_palp","chest_palp_freq","chest_tight","chest_tight_freq","chest_tight_extra","chest_compare","chest_pain"]},
+    {name:"대변",keys:["stool_main","stool_const_sev","stool_const_extra","stool_diarr_freq","stool_diarr_cause","stool_gas","stool_gas_freq"]},
+    {name:"소화",keys:["digest_main","digest_sev","digest_cause","digest_symptom","appetite","appetite_extra"]},
+    {name:"추위/더위",keys:["cold_heat_main","cold_sev","cold_extra","heat_sev","hand_temp","hand_cold_sev","hand_hot_freq","foot_temp","foot_cold_sev","foot_hot_freq","lower_belly","belly_warm","belly_warm2","face_heat","face_heat_when"]},
+    {name:"땀",keys:["sweat_main","sweat_area","sweat_area2","sauna"]},
+    {name:"부종/현훈",keys:["edema","edema_extra","dizzy"]},
+    {name:"소변",keys:["urine_freq","urine_night","urine_residual","urine_res_freq"]},
+    {name:"음수",keys:["water_main","water_reason","water_temp"]},
+    {name:"술",keys:["alcohol_freq","alcohol_effect","liver"]},
+    {name:"속메스꺼움",keys:["nausea","nausea_when","heartburn","heartburn_when","heartburn_spicy"]},
+    {name:"생리",keys:["menstrual_main","menstrual_pain","menstrual_extra"]},
+    {name:"감기/목",keys:["cold_main","cold_body","cold_throat","throat_main","throat_phlegm","throat_phlegm_extra","neck_pain","neck_pain_freq"]},
+    {name:"숨참/체력",keys:["breath","breath_sev","breath_when","stamina"]}
+];
+
+let allData=[], selectedId=null, refreshTimer=null;
+
+function updateClock() {
+    const d = new Date();
+    document.getElementById('clock').textContent = d.toLocaleString('ko-KR');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+async function loadList() {
+    const res = await fetch('/api/responses');
+    allData = await res.json();
+    renderList();
+    if (selectedId) showDetail(selectedId);
+}
+
+function renderList() {
+    const s = document.getElementById('search').value.trim().toLowerCase();
+    const el = document.getElementById('p-list');
+    let list = allData;
+    if (s) list = list.filter(d => d.name.toLowerCase().includes(s) || (d.phone && d.phone.includes(s)));
+    el.innerHTML = list.map(d => {
+        const act = d.patient_id === selectedId ? ' active' : '';
+        const bg = d.answers ? `<span class="badge-done">완료</span>` : `<span class="badge">대기</span>`;
+        return `<div class="p-item${act}" onclick="showDetail(${d.patient_id})">
+            <div class="nm">${d.name}${bg}</div>
+            <div class="inf">${d.phone||''} | ${d.gender||''} | ${d.birth_date||''}</div>
+            <div class="tm">${d.submitted_at||d.created_at||''}</div>
+        </div>`;
+    }).join('');
+}
+function filterList() { renderList(); }
+
+function calcAge(birth) {
+    if (!birth) return '';
+    const b = new Date(birth);
+    const now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+    return age;
+}
+
+function calcBMI(h, w) {
+    if (!h || !w) return null;
+    return w / ((h/100) * (h/100));
+}
+
+function getBMICategory(bmi) {
+    if (!bmi) return -1;
+    if (bmi < 18.5) return 0;
+    if (bmi < 20) return 1;
+    if (bmi < 23) return 2;
+    if (bmi < 25) return 3;
+    if (bmi < 27.5) return 4;
+    if (bmi < 30) return 5;
+    return 6;
+}
+
+function bodySVG(widthScale) {
+    const w = 20 + widthScale * 16;
+    const hw = w / 2;
+    return `<svg viewBox="0 0 60 80" width="50" height="66">
+        <circle cx="30" cy="14" r="10" fill="#c8d6e5" stroke="#b0bec5" stroke-width="1"/>
+        <path d="M${30-hw} 28 Q${30-hw-4} 28 ${30-hw-6} 40 L${30-hw-4} 70 L${30-hw+4} 70 L${30-hw+6} 52 L30 56 L${30+hw-6} 52 L${30+hw-4} 70 L${30+hw+4} 70 L${30+hw+6} 40 Q${30+hw+4} 28 ${30+hw} 28 Z" fill="#c8d6e5" stroke="#b0bec5" stroke-width="1"/>
+    </svg>`;
+}
+
+function renderBMI(bmi) {
+    const cats = [
+        {label:"매우수척", range:"BMI 17", w:0.15},
+        {label:"수척", range:"BMI 19", w:0.3},
+        {label:"약간수척", range:"BMI 22", w:0.45},
+        {label:"중등도", range:"BMI 24", w:0.6},
+        {label:"약간비만", range:"BMI 26", w:0.75},
+        {label:"비만", range:"BMI 29", w:0.9},
+        {label:"매우비만", range:"BMI 33~", w:1.0}
+    ];
+    const active = getBMICategory(bmi);
+    return cats.map((c, i) => {
+        const act = i === active ? ' active' : '';
+        return `<div class="bmi-item${act}">
+            <div class="bmi-circle${act ? ' bmi-circle-active' : ''}">${bodySVG(c.w)}</div>
+            <div class="bmi-label">${c.label}</div>
+            <div class="bmi-val">${c.range}</div>
+        </div>`;
+    }).join('');
+}
+
+function fmtAnswer(key, val) {
+    if (val === undefined || val === null || val === '') return '';
+    if (key === 'extra_symptoms') return `<div class="a-text">${val}</div>`;
+    if (Array.isArray(val)) {
+        return val.map(v => {
+            const cls = (v==='해당없음'||v==='해당 없음') ? 'a-outline' : 'a-check';
+            return `<span class="a-tag ${cls}">${v}</span>`;
+        }).join(' ');
+    }
+    const positive = ['예','그렇다','잘 자는 편','보통','보통이다','아니다','잘 되는 편','해당없음','해당 없음'];
+    const neg = ['아니오','못 자는 편','잘 안되는 편'];
+    if (neg.includes(val)) return `<span class="a-tag" style="background:#ffeaa7;color:#d35400;">${val}</span>`;
+    return `<span class="a-tag a-fill">${val}</span>`;
+}
+
+async function showDetail(pid) {
+    selectedId = pid;
+    renderList();
+    const res = await fetch(`/api/response/${pid}`);
+    const data = await res.json();
+    const p = data.patient;
+    const a = data.answers;
+    const el = document.getElementById('content');
+    const age = calcAge(p.birth_date);
+    const bmi = calcBMI(p.height, p.weight);
+
+    let h = '';
+
+    // Patient Header
+    h += `<div class="pt-header">
+        <div class="pt-top">
+            <div>
+                <span class="pt-name">${p.name}<span class="age">(${age||'?'}세)</span></span>
+            </div>
+            <div class="pt-right">
+                <button class="btn-print" onclick="window.print()">인쇄</button>
+            </div>
+        </div>
+        <div class="pt-meta">
+            <div class="m-item"><span class="m-label">성별</span><span class="m-val">${p.gender||'-'}</span></div>
+            <div class="m-item"><span class="m-label">나이</span><span class="m-val">${age||'-'}</span></div>
+            <div class="m-item"><span class="m-label">신장</span><span class="m-val">${p.height ? p.height+'cm' : '-'}</span></div>
+            <div class="m-item"><span class="m-label">체중</span><span class="m-val">${p.weight ? p.weight+'kg' : '-'}</span></div>
+            <div class="m-item"><span class="m-label">BMI</span><span class="m-val">${bmi ? bmi.toFixed(1) : '-'}</span></div>
+            <div class="m-item"><span class="m-label">접수일</span><span class="m-val">${p.created_at||'-'}</span></div>
+            <div class="m-item"><span class="m-label">제출일</span><span class="m-val">${data.submitted_at||'미제출'}</span></div>
+        </div>
+    </div>`;
+
+    // BMI
+    h += `<div class="bmi-section">
+        <div class="bmi-title">비수 (BMI)</div>
+        <div class="bmi-bar">${renderBMI(bmi)}</div>
+    </div>`;
+
+    // 형색성정
+    h += renderHSS(pid);
+
+    // Two column: memo right, questionnaire left
+    h += `<div class="two-col">`;
+    h += `<div class="col-left">`;
+
+    // Questionnaire
+    if (a) {
+        h += `<div class="q-section">`;
+        h += `<div class="q-section-title">문진</div>`;
+        h += `<table class="q-table">`;
+
+        CATS.forEach(cat => {
+            const hasAny = cat.keys.some(k => a[k] !== undefined && a[k] !== null && a[k] !== '');
+            if (!hasAny) return;
+
+            const rows = [];
+            cat.keys.forEach(k => {
+                if (a[k] === undefined || a[k] === null || a[k] === '') return;
+                rows.push({key:k, label:QL[k]||k, val:a[k]});
+            });
+
+            h += `<tr>`;
+            h += `<td class="cat-cell" rowspan="1">${cat.name}</td>`;
+            h += `<td class="q-cell">`;
+            rows.forEach(r => {
+                h += `<div class="q-row">`;
+                h += `<span class="q-label">${r.label}</span>`;
+                h += `<span class="q-answer">${fmtAnswer(r.key, r.val)}</span>`;
+                h += `</div>`;
+            });
+            h += `</td></tr>`;
+        });
+
+        h += `</table></div>`;
+
+        // 감정 섹션
+        const emoChecked = EMO_KEYS.filter(k => a[k] === true);
+        if (emoChecked.length > 0) {
+            h += `<div class="q-section"><div class="q-section-title">감정</div>`;
+            h += `<table class="q-table"><tr><td class="cat-cell">감정</td><td class="q-cell">`;
+            h += `<div class="q-row"><span class="q-answer">`;
+            emoChecked.forEach(k => {
+                h += `<span class="a-tag a-check">${QL[k]||k}</span> `;
+            });
+            h += `</span></div></td></tr></table></div>`;
+        }
+
+        // 증상입력 섹션
+        if (a.symptoms && a.symptoms.length > 0) {
+            h += `<div class="q-section"><div class="q-section-title">주요 증상</div>`;
+            h += `<table class="q-table">`;
+            a.symptoms.forEach((s, i) => {
+                h += `<tr><td class="cat-cell">증상${i+1}</td><td class="q-cell">`;
+                if (s.symptom) h += `<div class="q-row"><span class="q-label">증상</span><span class="q-answer"><span class="a-tag a-fill">${s.symptom}</span></span></div>`;
+                if (s.since) h += `<div class="q-row"><span class="q-label">언제부터</span><span class="q-answer"><span class="a-tag" style="background:#fff8e1;color:#e67e22;border:1px solid #ffe082;">${s.since}</span></span></div>`;
+                if (s.how) h += `<div class="q-row"><span class="q-label">어떻게</span><span class="q-answer"><span class="a-tag" style="background:#fef0f5;color:#e84393;border:1px solid #fab1c9;">${s.how}</span></span></div>`;
+                h += `</td></tr>`;
+            });
+            h += `</table></div>`;
+        }
+
+    } else {
+        h += `<div class="q-section"><div style="padding:30px;text-align:center;color:#aaa;">아직 문진을 완료하지 않았습니다.</div></div>`;
+    }
+
+    h += `</div>`; // col-left
+
+    // Right column: chief complaint / memo
+    h += `<div class="col-right">`;
+    h += `<div class="memo-box">
+        <h3>주증상</h3>
+        <div class="memo-row"><span class="memo-label">CC</span><div class="memo-val" contenteditable="true" id="memo-cc" style="border-bottom:1px solid #eee;min-height:24px;padding:2px 4px;"></div></div>
+        <div class="memo-row"><span class="memo-label">O/S</span><div class="memo-val" contenteditable="true" id="memo-os" style="border-bottom:1px solid #eee;min-height:24px;padding:2px 4px;"></div></div>
+        <div class="memo-row"><span class="memo-label">문진</span><div class="memo-val" contenteditable="true" id="memo-munj" style="border-bottom:1px solid #eee;min-height:24px;padding:2px 4px;"></div></div>
+    </div>`;
+    h += `<div class="memo-box">
+        <h3>진료메모</h3>
+        <textarea class="memo-textarea" id="memo-note" placeholder="진료 메모를 입력하세요..."></textarea>
+    </div>`;
+    h += `</div>`; // col-right
+    h += `</div>`; // two-col
+
+    el.innerHTML = h;
+    bindHSSEvents(pid);
+}
+
+// 형색성정 data store (per patient, in-memory)
+const hssData = {};
+function getHSS(pid) {
+    if (!hssData[pid]) hssData[pid] = { sunghyang:null, myunsaek:null, bulgeun:null, gita:[], anjin:{} };
+    return hssData[pid];
+}
+
+const ANJIN_ITEMS = [
+    "상완 이두근 압통","상완 삼두근 압통",
+    "심하 좁은부위 압통","심하 넓은부위 압통",
+    "우 협하 압통","좌 협하 압통",
+    "늑골들림","복직근 경결 압통",
+    "우 제하 압통","좌 제하 압통",
+    "복피 찰과 발적","비복근 압통",
+    "경골상 함요 부종"
+];
+
+function renderHSS(pid) {
+    const d = getHSS(pid);
+    let h = `<div class="hss-section"><div class="hss-title">형색성정</div><div class="hss-two">`;
+
+    // Left: 성향, 면색, 붉은기, 기타
+    h += `<div class="hss-left">`;
+    h += `<div class="hss-sub">· 성향</div>`;
+    h += `<div class="hss-row"><span class="hss-label"></span><div class="dot-scale"><span class="end-label">양적</span>`;
+    for (let i = 0; i < 7; i++) {
+        const act = d.sunghyang === i ? ' active' : '';
+        h += `<div class="dot-btn${act}" onclick="setHSSDot(${pid},'sunghyang',${i})"></div>`;
+    }
+    h += `<span class="end-label right">음적</span></div></div>`;
+
+    h += `<div class="hss-sub">· 면색</div>`;
+    h += `<div class="hss-row"><span class="hss-label"></span><div class="dot-scale"><span class="end-label">짙은편</span>`;
+    for (let i = 0; i < 7; i++) {
+        const act = d.myunsaek === i ? ' active' : '';
+        h += `<div class="dot-btn${act}" onclick="setHSSDot(${pid},'myunsaek',${i})"></div>`;
+    }
+    h += `<span class="end-label right">옅은편</span></div></div>`;
+
+    h += `<div class="hss-row"><span class="hss-label" style="min-width:55px;">붉은기</span><div class="tag-group">`;
+    ["약간그렇다","그렇다","매우그렇다"].forEach(t => {
+        const act = d.bulgeun === t ? ' active' : '';
+        h += `<div class="tag-btn${act}" onclick="setHSSTag(${pid},'bulgeun','${t}')">${t}</div>`;
+    });
+    h += `</div></div>`;
+
+    h += `<div class="hss-row"><span class="hss-label" style="min-width:55px;">기타(선택)</span><div class="tag-group">`;
+    ["미간주름","입술건조","안구황색침착"].forEach(t => {
+        const act = d.gita.includes(t) ? ' active' : '';
+        h += `<div class="tag-btn${act}" onclick="toggleHSSGita(${pid},'${t}')">${t}</div>`;
+    });
+    h += `</div></div>`;
+    h += `</div>`; // hss-left
+
+    // Right: 안진
+    h += `<div class="hss-right">`;
+    h += `<div class="anjin-title">· 안진</div>`;
+    h += `<div class="anjin-grid">`;
+    ANJIN_ITEMS.forEach(name => {
+        const stars = d.anjin[name] || 0;
+        h += `<div class="anjin-item"><span class="aj-name">${name}</span><div class="star-group">`;
+        for (let s = 1; s <= 3; s++) {
+            const on = s <= stars ? ' on' : '';
+            h += `<span class="star-btn${on}" onclick="setHSSStar(${pid},'${name}',${s})">&#9733;</span>`;
+        }
+        h += `</div></div>`;
+    });
+    h += `</div></div>`; // hss-right
+    h += `</div></div>`; // hss-two, hss-section
+    return h;
+}
+
+function bindHSSEvents(pid) { /* events bound via onclick */ }
+
+function setHSSDot(pid, field, idx) {
+    const d = getHSS(pid);
+    d[field] = d[field] === idx ? null : idx;
+    refreshHSS(pid);
+}
+function setHSSTag(pid, field, val) {
+    const d = getHSS(pid);
+    d[field] = d[field] === val ? null : val;
+    refreshHSS(pid);
+}
+function toggleHSSGita(pid, val) {
+    const d = getHSS(pid);
+    const i = d.gita.indexOf(val);
+    if (i > -1) d.gita.splice(i, 1); else d.gita.push(val);
+    refreshHSS(pid);
+}
+function setHSSStar(pid, name, star) {
+    const d = getHSS(pid);
+    d.anjin[name] = d.anjin[name] === star ? 0 : star;
+    refreshHSS(pid);
+}
+function refreshHSS(pid) {
+    const sec = document.querySelector('.hss-section');
+    if (sec) sec.outerHTML = renderHSS(pid);
+}
+
+function setupAutoRefresh() {
+    const chk = document.getElementById('auto-chk');
+    function toggle() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        if (chk.checked) refreshTimer = setInterval(loadList, 10000);
+    }
+    chk.addEventListener('change', toggle);
+    toggle();
+}
+
+loadList();
+setupAutoRefresh();
+</script>
+</body>
+</html>
