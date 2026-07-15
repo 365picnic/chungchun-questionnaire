@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청춘한의원 - 문진 관리</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #f3f5fa; color: #26304a; }
+
+/* ===== 잠금 화면 ===== */
+#lock-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a3a6b, #3a7bd5); }
+.lock-box { background: #fff; border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); text-align: center; }
+.lock-box h1 { font-size: 18px; margin-bottom: 4px; }
+.lock-box .sub { font-size: 13px; color: #888; margin-bottom: 22px; }
+.lock-box input { width: 100%; padding: 13px 14px; border: 2px solid #e0e4ea; border-radius: 12px; font-size: 15px; margin-bottom: 12px; }
+.lock-box input:focus { outline: none; border-color: #6c5ce7; }
+.lock-box button { width: 100%; padding: 13px; background: linear-gradient(135deg, #3a7bd5, #6c5ce7); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.lock-box .err { color: #e74c3c; font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+
+/* ===== 대시보드 ===== */
+#dash { display: none; }
+.topbar { background: #fff; border-bottom: 1px solid #e2e6ee; padding: 10px 22px; display: flex; justify-content: space-between; align-items: center; height: 52px; }
+.topbar .brand { font-weight: 700; font-size: 15px; color: #1a3a6b; }
+.topbar .brand span { color: #6c5ce7; }
+.topbar .right { display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: #888; }
+.topbar button { background: #3a7bd5; color: #fff; border: none; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.topbar button:hover { background: #2f66b3; }
+
+.layout { display: flex; height: calc(100vh - 52px); }
+.sidebar { width: 300px; background: #fff; border-right: 1px solid #e2e6ee; display: flex; flex-direction: column; }
+.sidebar-hdr { padding: 12px; border-bottom: 1px solid #eef0f5; }
+.sidebar-hdr input { width: 100%; padding: 9px 12px; border: 1px solid #dfe3ec; border-radius: 8px; font-size: 13px; }
+.sidebar-hdr input:focus { outline: none; border-color: #6c5ce7; }
+.p-list { flex: 1; overflow-y: auto; }
+.p-item { padding: 12px 16px; border-bottom: 1px solid #f2f4f8; cursor: pointer; }
+.p-item:hover { background: #f6f8fd; }
+.p-item.active { background: #ecf1fb; border-left: 3px solid #3a7bd5; padding-left: 13px; }
+.p-item .nm { font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
+.p-item .nm .gender-tag { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: #eef1f8; color: #6b7488; }
+.p-item .inf { font-size: 11.5px; color: #8a92a6; margin-top: 3px; }
+.p-item .tm { font-size: 10.5px; color: #b0b6c4; margin-top: 2px; }
+.empty-list { padding: 30px 16px; text-align: center; color: #aaa; font-size: 13px; }
+
+.detail { flex: 1; overflow-y: auto; padding: 26px 34px; }
+.detail-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #aaa; font-size: 14px; }
+
+.patient-card { background: #fff; border: 1px solid #e2e6ee; border-radius: 16px; padding: 20px 24px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 22px 34px; align-items: center; }
+.patient-card .name { font-size: 20px; font-weight: 800; }
+.patient-card .name .gender-tag { font-size: 11px; font-weight: 700; margin-left: 8px; padding: 2px 9px; border-radius: 10px; background: #eef1f8; color: #6c5ce7; vertical-align: middle; }
+.patient-card .field { font-size: 12.5px; color: #8a92a6; }
+.patient-card .field b { display: block; font-size: 14px; color: #26304a; font-weight: 700; margin-top: 2px; }
+
+.symptom-box { background: #fff7ec; border: 1px solid #f5e3bf; border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; }
+.symptom-box h3 { font-size: 13px; color: #b8860b; margin-bottom: 8px; }
+.symptom-box pre { white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.7; color: #5a4a1e; }
+
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.cat-card { background: #fff; border: 1px solid #e2e6ee; border-radius: 14px; overflow: hidden; }
+.cat-card .cat-hdr { background: linear-gradient(135deg, #3a7bd5, #6c5ce7); color: #fff; font-size: 12.5px; font-weight: 700; padding: 9px 16px; }
+.cat-card .cat-body { padding: 12px 16px; }
+.qa-row { font-size: 13px; line-height: 1.6; padding: 6px 0; border-bottom: 1px dashed #eef0f5; }
+.qa-row:last-child { border-bottom: none; }
+.qa-row .q { color: #6b7488; }
+.qa-row .a { color: #26304a; font-weight: 600; }
+.qa-sub { font-size: 12px; color: #8a92a6; padding: 2px 0 2px 12px; }
+.qa-sub b { color: #4a5568; font-weight: 600; }
+
+.raw-toggle { font-size: 12px; color: #aaa; cursor: pointer; margin-bottom: 8px; display: inline-block; }
+.raw-box { display: none; background: #f6f7fb; border-radius: 10px; padding: 12px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #666; white-space: pre-wrap; word-break: break-all; margin-bottom: 20px; }
+
+.status-line { font-size: 12px; color: #aaa; padding: 0 22px; }
+</style>
+</head>
+<body>
+
+<div id="lock-screen">
+  <div class="lock-box">
+    <h1>청춘한의원</h1>
+    <div class="sub">문진 관리 - 비밀번호를 입력해주세요</div>
+    <input type="password" id="inp-key" placeholder="비밀번호" onkeydown="if(event.key==='Enter')unlock()">
+    <button onclick="unlock()">확인</button>
+    <div class="err" id="lock-err"></div>
+  </div>
+</div>
+
+<div id="dash">
+  <div class="topbar">
+    <div class="brand">청춘한의원 <span>문진 관리</span></div>
+    <div class="right">
+      <span id="last-updated"></span>
+      <button onclick="loadData()">새로고침</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-hdr">
+        <input type="text" id="search" placeholder="이름 또는 전화번호 검색" oninput="renderList()">
+      </div>
+      <div class="p-list" id="p-list"></div>
+    </div>
+    <div class="detail" id="detail">
+      <div class="detail-empty">왼쪽 목록에서 환자를 선택해주세요.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// docs/index.html 의 GAS_URL 과 동일한 주소를 사용합니다.
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
+
+let adminKey = sessionStorage.getItem('admin_key') || '';
+let records = [];
+let selectedIdx = null;
+
+if (adminKey) tryLoadWithKey();
+
+function unlock() {
+  const k = document.getElementById('inp-key').value.trim();
+  if (!k) return;
+  adminKey = k;
+  tryLoadWithKey();
+}
+
+async function tryLoadWithKey() {
+  document.getElementById('lock-err').textContent = '';
+  try {
+    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (e) { data = null; }
+    if (!Array.isArray(data)) {
+      document.getElementById('lock-err').textContent = '비밀번호가 올바르지 않습니다.';
+      sessionStorage.removeItem('admin_key');
+      return;
+    }
+    sessionStorage.setItem('admin_key', adminKey);
+    records = data;
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    renderList();
+    updateTimestamp();
+  } catch (e) {
+    document.getElementById('lock-err').textContent = '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
+  }
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      records = data;
+      renderList();
+      if (selectedIdx !== null) renderDetail(selectedIdx);
+      updateTimestamp();
+    }
+  } catch (e) { /* 조용히 실패 - 다음 새로고침에서 재시도 */ }
+}
+
+function updateTimestamp() {
+  const now = new Date();
+  document.getElementById('last-updated').textContent =
+    '마지막 새로고침 ' + now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderList() {
+  const kw = (document.getElementById('search').value || '').trim();
+  const list = document.getElementById('p-list');
+  const filtered = records
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => !kw || (r.name || '').includes(kw) || (r.phone || '').includes(kw));
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-list">아직 접수된 문진이 없습니다.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(({ r, i }) => {
+    const dt = r.submittedAt ? new Date(r.submittedAt) : null;
+    const dtText = dt ? dt.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const genderTag = r.gender ? `<span class="gender-tag">${r.gender}</span>` : '';
+    return `<div class="p-item${i === selectedIdx ? ' active' : ''}" onclick="renderDetail(${i})">
+      <div class="nm">${esc(r.name || '(이름없음)')} ${genderTag}</div>
+      <div class="inf">${esc(r.phone || '')}</div>
+      <div class="tm">${dtText}</div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// summary 텍스트("[카테고리] 질문: 답" / "   - 세부질문: 답")를 카테고리별 카드로 변환
+function parseSummary(summary) {
+  const cats = [];
+  let cur = null;
+  (summary || '').split('\n').forEach(line => {
+    if (!line.trim()) return;
+    const m = line.match(/^\[(.+?)\]\s(.*)$/);
+    if (m) {
+      if (!cur || cur.name !== m[1]) {
+        cur = { name: m[1], rows: [] };
+        cats.push(cur);
+      }
+      const [q, a] = splitQA(m[2]);
+      cur.rows.push({ type: 'main', q, a });
+    } else if (line.trim().startsWith('-') && cur) {
+      const content = line.trim().replace(/^-\s*/, '');
+      const [q, a] = splitQA(content);
+      cur.rows.push({ type: 'sub', q, a });
+    }
+  });
+  return cats;
+}
+
+function splitQA(text) {
+  const idx = text.lastIndexOf(': ');
+  if (idx === -1) return [text, ''];
+  return [text.slice(0, idx), text.slice(idx + 2)];
+}
+
+function renderDetail(i) {
+  selectedIdx = i;
+  renderList();
+  const r = records[i];
+  const cats = parseSummary(r.summary);
+
+  let h = '';
+  h += `<div class="patient-card">
+    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag">${esc(r.gender)}</span>` : ''}</div>
+    <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
+    <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
+    <div class="field">키 / 몸무게<b>${esc(r.height || '-')}cm / ${esc(r.weight || '-')}kg</b></div>
+    <div class="field">제출일시<b>${r.submittedAt ? new Date(r.submittedAt).toLocaleString('ko-KR') : '-'}</b></div>
+  </div>`;
+
+  if (r.symptoms) {
+    h += `<div class="symptom-box"><h3>환자가 직접 적은 증상</h3><pre>${esc(r.symptoms)}</pre></div>`;
+  }
+
+  h += `<div class="cat-grid">`;
+  cats.forEach(cat => {
+    h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
+    cat.rows.forEach(row => {
+      if (row.type === 'main') {
+        h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
+      } else {
+        h += `<div class="qa-sub"><b>${esc(row.q)}</b>: ${esc(row.a)}</div>`;
+      }
+    });
+    h += `</div></div>`;
+  });
+  h += `</div>`;
+
+  h += `<div class="raw-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='block' ? 'none' : 'block'">원본 데이터 보기(백업용)</div>`;
+  h += `<div class="raw-box">${esc(r.raw || '')}</div>`;
+
+  document.getElementById('detail').innerHTML = h;
+}
+</script>
+</body>
+</html>

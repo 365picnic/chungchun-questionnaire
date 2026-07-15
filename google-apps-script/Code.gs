@@ -16,6 +16,10 @@
 
 var SHEET_NAME = '문진응답';
 
+// 관리 페이지(admin.html)에서 답변 목록을 조회할 때 쓰는 비밀번호 역할의 값.
+// 필요하면 원하는 문자열로 바꾸고 "새 버전으로 배포"를 다시 하면 됩니다.
+var ADMIN_KEY = 'GbHXZumIjIYRZUiWLSQ4';
+
 function doPost(e) {
   var sheet = getOrCreateSheet_();
   var data = JSON.parse(e.postData.contents);
@@ -33,15 +37,65 @@ function doPost(e) {
     data.raw || ''
   ]);
 
+  // 문진 요약처럼 줄바꿈이 많은 칸 때문에 행이 세로로 길게 늘어나지 않도록 설정
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 1, 1, 10).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.setRowHeight(lastRow, 21);
+
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doGet(e) {
+  var key = e.parameter.key;
+  if (!key || key !== ADMIN_KEY) {
+    return ContentService
+      .createTextOutput('청춘한의원 문진 접수 서버가 정상 동작 중입니다.')
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  var sheet = getOrCreateSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return jsonOutput_([]);
+  }
+  var values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  var records = values.map(function (row, i) {
+    return {
+      rowNum: i + 2,
+      submittedAt: row[0] ? new Date(row[0]).toISOString() : '',
+      name: row[1],
+      phone: row[2],
+      birthDate: row[3],
+      height: row[4],
+      weight: row[5],
+      gender: row[6],
+      summary: row[7],
+      symptoms: row[8],
+      raw: row[9]
+    };
+  }).reverse(); // 최신 제출 건이 먼저 오도록
+
+  return jsonOutput_(records);
+}
+
+// 이미 쌓인 응답들 때문에 행이 세로로 길어져 있다면, Apps Script 편집기에서
+// 이 함수를 한 번 선택해서 "실행" 버튼으로 직접 실행하면 한 번에 정리됩니다.
+function fixExistingRowHeights() {
+  var sheet = getOrCreateSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) return;
+  sheet.getRange(1, 1, lastRow, 10).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  for (var r = 1; r <= lastRow; r++) {
+    sheet.setRowHeight(r, 21);
+  }
+}
+
+function jsonOutput_(obj) {
   return ContentService
-    .createTextOutput('청춘한의원 문진 접수 서버가 정상 동작 중입니다.')
-    .setMimeType(ContentService.MimeType.TEXT);
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function getOrCreateSheet_() {
