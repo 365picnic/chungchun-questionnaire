@@ -12,6 +12,10 @@
  * 6. "배포" 클릭 → 권한 승인(계정 선택 후 "고급" > "안전하지 않음으로 이동" 등 안내에 따라 허용).
  * 7. 배포 완료 후 나오는 "웹 앱 URL"을 복사한다.
  * 8. 그 URL을 docs/index.html 안의 GAS_URL 값에 붙여넣는다.
+ *
+ * ※ 이미 배포되어 있는 상태에서 이 코드 내용을 바꿨다면 (예: handleUpdate_ 추가),
+ *    새로 배포하지 말고 우측 상단 "배포 > 배포 관리"에서 연필(수정) 아이콘을 눌러
+ *    기존 배포에 "새 버전"으로 반영해야 웹 앱 URL이 그대로 유지됩니다.
  */
 
 var SHEET_NAME = '문진응답';
@@ -21,8 +25,14 @@ var SHEET_NAME = '문진응답';
 var ADMIN_KEY = 'GbHXZumIjIYRZUiWLSQ4';
 
 function doPost(e) {
-  var sheet = getOrCreateSheet_();
   var data = JSON.parse(e.postData.contents);
+
+  // 관리자페이지에서 원장님이 문진 답변을 직접 고쳐서 저장할 때 (신규 접수가 아니라 기존 행 수정)
+  if (data.action === 'update') {
+    return handleUpdate_(data);
+  }
+
+  var sheet = getOrCreateSheet_();
 
   sheet.appendRow([
     new Date(),
@@ -45,6 +55,23 @@ function doPost(e) {
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok' }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// 관리자페이지(admin.html)에서 "수정 내용 저장"을 눌렀을 때 실행되는 부분.
+// 원장님만 접근 가능하도록 ADMIN_KEY 를 반드시 확인한 뒤, 문진 요약(H열)과
+// 원본데이터(J열)만 해당 환자의 행 번호(rowNum)에 덮어씁니다.
+function handleUpdate_(data) {
+  if (!data.key || data.key !== ADMIN_KEY) {
+    return jsonOutput_({ status: 'error', message: 'invalid key' });
+  }
+  var rowNum = parseInt(data.rowNum, 10);
+  var sheet = getOrCreateSheet_();
+  if (!rowNum || rowNum < 2 || rowNum > sheet.getLastRow()) {
+    return jsonOutput_({ status: 'error', message: 'invalid rowNum' });
+  }
+  sheet.getRange(rowNum, 8).setValue(data.summary || ''); // 문진 요약
+  sheet.getRange(rowNum, 10).setValue(data.raw || '');    // 원본데이터(JSON)
+  return jsonOutput_({ status: 'ok' });
 }
 
 function doGet(e) {

@@ -88,6 +88,19 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; backgrou
 .qa-sub { font-size: 12px; color: #8a92a6; padding: 2px 0 2px 12px; }
 .qa-sub b { color: #4a5568; font-weight: 600; }
 
+/* 문진 답변 수정 UI */
+.save-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.save-bar button { background: linear-gradient(135deg, #3a7bd5, #6c5ce7); color: #fff; border: none; padding: 9px 20px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.save-bar button:hover { opacity: .92; }
+.save-status { font-size: 12px; color: #8a92a6; }
+.save-status.ok { color: #27ae60; font-weight: 600; }
+.save-status.err { color: #e74c3c; font-weight: 600; }
+.edit-opts { display: flex; flex-wrap: wrap; gap: 3px 14px; margin: 3px 0 2px; }
+.edit-opt, .edit-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: #26304a; cursor: pointer; }
+.edit-opt input, .edit-chk input { width: 15px; height: 15px; accent-color: #3a7bd5; cursor: pointer; margin: 0; }
+.qa-sub-block { margin: 2px 0 8px 14px; padding-left: 10px; border-left: 2px solid #eef0f5; }
+.qa-sub-title { font-size: 11.5px; color: #6c5ce7; font-weight: 600; margin: 4px 0 2px; }
+
 .raw-toggle { font-size: 12px; color: #aaa; cursor: pointer; margin-bottom: 8px; display: inline-block; }
 .raw-box { display: none; background: #f6f7fb; border-radius: 10px; padding: 12px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #666; white-space: pre-wrap; word-break: break-all; margin-bottom: 20px; }
 
@@ -127,6 +140,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; backgrou
   </div>
 </div>
 
+<script src="questions.js"></script>
 <script>
 // docs/index.html 의 GAS_URL 과 동일한 주소를 사용합니다.
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
@@ -134,6 +148,13 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJ
 let adminKey = sessionStorage.getItem('admin_key') || '';
 let records = [];
 let selectedIdx = null;
+
+// 문진 답변 수정용 (questions.js 의 Q/visibleQ/buildSummary 가 참조하는 전역 변수).
+// 환자를 새로 선택했을 때만 r.raw로 채우고, 그 이후 같은 환자를 다시 그릴 때는
+// (원장님이 클릭해서 고친 내용이 사라지지 않도록) 이미 채워진 값을 그대로 씁니다.
+let answers = {};
+let selectedGender = null;
+let editingRowNum = null;
 
 if (adminKey) tryLoadWithKey();
 
@@ -285,6 +306,127 @@ function renderTendencyDots(rowNum) {
   return h;
 }
 
+// ===== 문진 답변 수정 (환자가 잘못 표현한 부분을 원장이 직접 고칠 수 있도록) =====
+// questions.js 의 Q / visibleQ() / buildSummary() 를 그대로 사용하고, 전역 answers/selectedGender 를
+// 현재 열어본 환자의 답변으로 채운 뒤 실제 라디오버튼/체크박스로 그려줍니다.
+
+// 옵션 문자열을 onclick="..." 안의 JS 문자열로 안전하게 넣기 위한 이스케이프 (index.html의 esc()와 동일)
+function escJsAttr(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function isEditSelected(qId, opt, type) {
+  if (type === 'single') return answers[qId] === opt;
+  return (answers[qId] || []).includes(opt);
+}
+
+// docs/index.html 의 pick()과 동일한 선택/토글 로직
+function editPick(qId, val, type) {
+  val = val.replace(/\\'/g, "'");
+  const isNA = val === '해당없음' || val === '해당 없음';
+  if (type === 'single') {
+    if (answers[qId] === val) delete answers[qId];
+    else answers[qId] = val;
+  } else {
+    if (!answers[qId]) answers[qId] = [];
+    const i = answers[qId].indexOf(val);
+    if (i > -1) {
+      answers[qId].splice(i, 1);
+    } else if (isNA) {
+      answers[qId] = [val];
+    } else {
+      answers[qId] = answers[qId].filter(v => v !== '해당없음' && v !== '해당 없음');
+      answers[qId].push(val);
+    }
+    if (answers[qId].length === 0) delete answers[qId];
+  }
+  renderDetail(selectedIdx);
+}
+
+function editToggleEmo(itemId) {
+  answers[itemId] = !answers[itemId];
+  if (!answers[itemId]) delete answers[itemId];
+  renderDetail(selectedIdx);
+}
+
+function renderSubQuestionRow(sq) {
+  const inputType = sq.type === 'multi' ? 'checkbox' : 'radio';
+  let h = '';
+  if (sq.title) h += `<div class="qa-sub-title">${esc(sq.title)}</div>`;
+  h += `<div class="edit-opts">`;
+  sq.opts.forEach(o => {
+    const checked = isEditSelected(sq.id, o, sq.type);
+    h += `<label class="edit-opt"><input type="${inputType}" name="edit_${sq.id}" ${checked ? 'checked' : ''} onclick="editPick('${sq.id}','${escJsAttr(o)}','${sq.type}')"> ${esc(o)}</label>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function renderQuestionRow(q) {
+  if (q.type === 'emotion') {
+    let h = `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">`;
+    q.groups.forEach(g => g.items.forEach(it => {
+      const checked = answers[it.id] === true;
+      h += `<label class="edit-chk"><input type="checkbox" ${checked ? 'checked' : ''} onclick="editToggleEmo('${it.id}')"> ${esc(it.text)}</label>`;
+    }));
+    h += `</div>`;
+    return h;
+  }
+
+  const inputType = q.type === 'multi' ? 'checkbox' : 'radio';
+  let h = `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">`;
+  q.opts.forEach(o => {
+    const checked = isEditSelected(q.id, o, q.type);
+    h += `<label class="edit-opt"><input type="${inputType}" name="edit_${q.id}" ${checked ? 'checked' : ''} onclick="editPick('${q.id}','${escJsAttr(o)}','${q.type}')"> ${esc(o)}</label>`;
+  });
+  h += `</div>`;
+
+  if (q.sub) {
+    const val = answers[q.id];
+    const chosen = Array.isArray(val) ? val : (val !== undefined ? [val] : []);
+    chosen.forEach(v => {
+      if (q.sub[v]) {
+        h += `<div class="qa-sub-block">`;
+        q.sub[v].forEach(sq => { h += renderSubQuestionRow(sq); });
+        h += `</div>`;
+      }
+    });
+  }
+  return h;
+}
+
+function buildEditableCats() {
+  const cats = [];
+  let cur = null;
+  visibleQ().forEach(q => {
+    if (q.type === 'symptom_entry') return;
+    if (!cur || cur.name !== q.cat) { cur = { name: q.cat, rows: [] }; cats.push(cur); }
+    cur.rows.push(renderQuestionRow(q));
+  });
+  return cats;
+}
+
+function saveCorrections(rowNum) {
+  const status = document.getElementById('save-status');
+  if (status) { status.textContent = '저장 중...'; status.className = 'save-status'; }
+  const payload = {
+    action: 'update',
+    key: adminKey,
+    rowNum: rowNum,
+    raw: JSON.stringify(answers),
+    summary: buildSummary()
+  };
+  fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+    .then(() => {
+      const r = records[selectedIdx];
+      if (r) { r.raw = payload.raw; r.summary = payload.summary; }
+      const st = document.getElementById('save-status');
+      if (st) { st.textContent = '저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')'; st.className = 'save-status ok'; }
+    })
+    .catch(() => {
+      const st = document.getElementById('save-status');
+      if (st) { st.textContent = '저장 실패 - 네트워크를 확인해주세요.'; st.className = 'save-status err'; }
+    });
+}
+
 // summary 텍스트("[카테고리] 질문: 답" / "   - 세부질문: 답")를 카테고리별 카드로 변환
 function parseSummary(summary) {
   const cats = [];
@@ -318,7 +460,9 @@ function renderDetail(i) {
   selectedIdx = i;
   renderList();
   const r = records[i];
-  const cats = parseSummary(r.summary);
+
+  let editableAnswers = null;
+  try { editableAnswers = r.raw ? JSON.parse(r.raw) : null; } catch (e) { editableAnswers = null; }
 
   let h = '';
   h += `<div class="patient-card">
@@ -346,19 +490,45 @@ function renderDetail(i) {
     h += `<div class="symptom-box"><h3>환자가 직접 적은 증상</h3><pre>${esc(r.symptoms)}</pre></div>`;
   }
 
-  h += `<div class="cat-grid">`;
-  cats.forEach(cat => {
-    h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
-    cat.rows.forEach(row => {
-      if (row.type === 'main') {
-        h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
-      } else {
-        h += `<div class="qa-sub"><b>${esc(row.q)}</b>: ${esc(row.a)}</div>`;
-      }
+  if (editableAnswers) {
+    // 실제 라디오버튼/체크박스로 문진 답변을 그려서, 원장님이 진료 중 환자와 함께 보면서
+    // 잘못 표현된 답변이 있으면 바로 클릭해서 고칠 수 있게 합니다.
+    // 환자를 새로 열었을 때만 원본으로 초기화하고, 같은 환자를 다시 그릴 때는
+    // (클릭해서 고친 내용이 지워지지 않도록) answers를 그대로 유지합니다.
+    if (editingRowNum !== r.rowNum) {
+      answers = editableAnswers;
+      selectedGender = r.gender || null;
+      editingRowNum = r.rowNum;
+    }
+
+    h += `<div class="save-bar">
+      <button onclick="saveCorrections(${r.rowNum})">수정 내용 저장</button>
+      <span class="save-status" id="save-status"></span>
+    </div>`;
+
+    const cats = buildEditableCats();
+    h += `<div class="cat-grid">`;
+    cats.forEach(cat => {
+      h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">${cat.rows.join('')}</div></div>`;
     });
-    h += `</div></div>`;
-  });
-  h += `</div>`;
+    h += `</div>`;
+  } else {
+    // raw 데이터가 없거나 손상된 옛 기록은 예전처럼 읽기 전용 텍스트로 보여줍니다.
+    const cats = parseSummary(r.summary);
+    h += `<div class="cat-grid">`;
+    cats.forEach(cat => {
+      h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
+      cat.rows.forEach(row => {
+        if (row.type === 'main') {
+          h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
+        } else {
+          h += `<div class="qa-sub"><b>${esc(row.q)}</b>: ${esc(row.a)}</div>`;
+        }
+      });
+      h += `</div></div>`;
+    });
+    h += `</div>`;
+  }
 
   h += `<div class="raw-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='block' ? 'none' : 'block'">원본 데이터 보기(백업용)</div>`;
   h += `<div class="raw-box">${esc(r.raw || '')}</div>`;
