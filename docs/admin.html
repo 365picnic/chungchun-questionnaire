@@ -63,15 +63,33 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; backgrou
 .bmi-item.active .bmi-val { color: #3a7bd5; font-weight: 600; }
 .bmi-note { font-size: 11.5px; color: #b0b6c4; text-align: center; margin-top: 8px; }
 
-.tendency-box { background: #fff; border: 1px solid #e2e6ee; border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; }
-.tendency-box h3 { font-size: 13px; color: #3a7bd5; margin-bottom: 4px; }
-.tendency-box .sub { font-size: 11.5px; color: #b0b6c4; margin-bottom: 12px; }
+/* 형색성정: 성향/면색/붉은기/기타/안진 - 모두 원장님이 진료 중 직접 판단해 표시 (자동 아님) */
+.hss-section { background: #fff; border: 1px solid #e2e6ee; border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; }
+.hss-section h3 { font-size: 13px; color: #3a7bd5; margin-bottom: 4px; }
+.hss-section .sub { font-size: 11.5px; color: #b0b6c4; margin-bottom: 12px; }
+.hss-two { display: flex; gap: 28px; }
+.hss-left { flex: 1; min-width: 0; }
+.hss-right { flex: 1.15; min-width: 0; }
+.hss-sub { font-size: 11.5px; color: #26304a; font-weight: 700; margin: 12px 0 6px; }
+.hss-sub:first-child { margin-top: 0; }
 .dot-scale { display: flex; align-items: center; gap: 6px; }
 .dot-scale .end-label { font-size: 11.5px; color: #8a92a6; font-weight: 600; min-width: 30px; }
 .dot-scale .end-label.right { text-align: right; }
-.dot-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #dfe3ec; background: #fff; cursor: pointer; transition: all .15s; }
+.dot-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #dfe3ec; background: #fff; cursor: pointer; transition: all .15s; flex-shrink: 0; }
 .dot-btn:hover { border-color: #3a7bd5; }
 .dot-btn.active { background: #1a3a6b; border-color: #1a3a6b; }
+.tag-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-btn { padding: 5px 12px; border: 1px solid #dfe3ec; border-radius: 8px; font-size: 11.5px; cursor: pointer; background: #fff; color: #26304a; transition: all .15s; }
+.tag-btn:hover { border-color: #3a7bd5; }
+.tag-btn.active { background: #3a7bd5; color: #fff; border-color: #3a7bd5; }
+.anjin-title { font-size: 11.5px; color: #26304a; font-weight: 700; margin-bottom: 8px; }
+.anjin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+.anjin-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f5f6fa; font-size: 11.5px; gap: 8px; }
+.anjin-item .aj-name { color: #444; }
+.star-group { display: flex; gap: 1px; flex-shrink: 0; }
+.star-btn { font-size: 16px; color: #dfe3ec; cursor: pointer; line-height: 1; transition: color .1s; }
+.star-btn.on { color: #f0c040; }
+.star-btn:hover { color: #f0c040; }
 
 .symptom-box { background: #fff7ec; border: 1px solid #f5e3bf; border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; }
 .symptom-box h3 { font-size: 13px; color: #b8860b; margin-bottom: 8px; }
@@ -131,6 +149,13 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; backgrou
 .raw-box { display: none; background: #f6f7fb; border-radius: 10px; padding: 12px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #666; white-space: pre-wrap; word-break: break-all; margin-bottom: 20px; }
 
 .status-line { font-size: 12px; color: #aaa; padding: 0 22px; }
+
+@media (max-width: 1000px) {
+  .two-col { flex-direction: column; }
+  .col-side { width: 100%; }
+  .hss-two { flex-direction: column; gap: 4px; }
+  .anjin-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -184,7 +209,7 @@ let editingRowNum = null;
 
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
-let doctorNotes = { cc: [], memo: '', prescription: '' };
+let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
 
 if (adminKey) tryLoadWithKey();
 
@@ -355,27 +380,92 @@ function renderBMI(bmi) {
   }).join('');
 }
 
-// ===== 성향 (원장이 진료 중 직접 판단해 표시, 자동 아님) =====
-// 환자별 rowNum을 키로 브라우저(이 컴퓨터)에 저장합니다.
-function getTendency(rowNum) {
-  const raw = localStorage.getItem('tendency_' + rowNum);
-  return raw === null ? null : parseInt(raw, 10);
+// ===== 형색성정: 성향/면색/붉은기/기타/안진 (모두 원장님이 진료 중 직접 판단해 표시, 자동 아님) =====
+// 주증상/메모와 함께 doctorNotes에 담겨 "저장" 버튼을 누르면 구글시트에 저장됩니다.
+const ANJIN_ITEMS = [
+  '상완 이두근 압통', '상완 삼두근 압통',
+  '심하 좁은부위 압통', '심하 넓은부위 압통',
+  '우 협하 압통', '좌 협하 압통',
+  '늑골들림', '복직근 경결 압통',
+  '우 제하 압통', '좌 제하 압통',
+  '복피 찰과 발적', '비복근 압통',
+  '경골상 함요 부종'
+];
+
+function refreshHSS() {
+  const el = document.getElementById('hss-body');
+  if (el) el.innerHTML = renderHSSBody();
 }
-function setTendency(rowNum, idx) {
-  const cur = getTendency(rowNum);
-  if (cur === idx) localStorage.removeItem('tendency_' + rowNum);
-  else localStorage.setItem('tendency_' + rowNum, idx);
-  renderDetail(selectedIdx);
+
+function setDotField(field, idx) {
+  doctorNotes[field] = doctorNotes[field] === idx ? null : idx;
+  refreshHSS();
 }
-function renderTendencyDots(rowNum) {
-  const cur = getTendency(rowNum);
-  let h = '<span class="end-label">양적</span>';
+function setTagField(field, val) {
+  doctorNotes[field] = doctorNotes[field] === val ? null : val;
+  refreshHSS();
+}
+function toggleGita(val) {
+  const i = doctorNotes.gita.indexOf(val);
+  if (i > -1) doctorNotes.gita.splice(i, 1);
+  else doctorNotes.gita.push(val);
+  refreshHSS();
+}
+function setAnjinStar(name, star) {
+  doctorNotes.anjin[name] = doctorNotes.anjin[name] === star ? 0 : star;
+  refreshHSS();
+}
+
+function renderDotScale(field, leftLabel, rightLabel) {
+  const cur = doctorNotes[field];
+  let h = `<span class="end-label">${leftLabel}</span>`;
   for (let i = 0; i < 7; i++) {
     const act = cur === i ? ' active' : '';
-    h += `<div class="dot-btn${act}" onclick="setTendency(${rowNum},${i})"></div>`;
+    h += `<div class="dot-btn${act}" onclick="setDotField('${field}',${i})"></div>`;
   }
-  h += '<span class="end-label right">음적</span>';
+  h += `<span class="end-label right">${rightLabel}</span>`;
   return h;
+}
+
+function renderHSSBody() {
+  let h = '<div class="hss-left">';
+  h += `<div class="hss-sub">· 성향</div><div class="dot-scale">${renderDotScale('tendency', '양적', '음적')}</div>`;
+  h += `<div class="hss-sub">· 면색</div><div class="dot-scale">${renderDotScale('myunsaek', '짙은편', '옅은편')}</div>`;
+
+  h += `<div class="hss-sub">· 붉은기</div><div class="tag-group">`;
+  ['약간그렇다', '그렇다', '매우그렇다'].forEach(t => {
+    const act = doctorNotes.bulgeun === t ? ' active' : '';
+    h += `<div class="tag-btn${act}" onclick="setTagField('bulgeun','${t}')">${t}</div>`;
+  });
+  h += `</div>`;
+
+  h += `<div class="hss-sub">· 기타(선택)</div><div class="tag-group">`;
+  ['미간주름', '입술건조', '안구황색침착'].forEach(t => {
+    const act = doctorNotes.gita.includes(t) ? ' active' : '';
+    h += `<div class="tag-btn${act}" onclick="toggleGita('${t}')">${t}</div>`;
+  });
+  h += `</div></div>`; // hss-left
+
+  h += `<div class="hss-right"><div class="anjin-title">· 안진</div><div class="anjin-grid">`;
+  ANJIN_ITEMS.forEach(name => {
+    const stars = doctorNotes.anjin[name] || 0;
+    h += `<div class="anjin-item"><span class="aj-name">${esc(name)}</span><div class="star-group">`;
+    for (let s = 1; s <= 3; s++) {
+      const on = s <= stars ? ' on' : '';
+      h += `<span class="star-btn${on}" onclick="setAnjinStar('${escJsAttr(name)}',${s})">&#9733;</span>`;
+    }
+    h += `</div></div>`;
+  });
+  h += `</div></div>`; // hss-right
+  return h;
+}
+
+function renderHSS() {
+  return `<div class="hss-section">
+    <h3>형색성정</h3>
+    <div class="sub">자동 계산이 아니라, 원장님이 진료 중 직접 판단해 표시하는 항목입니다.</div>
+    <div class="hss-two" id="hss-body">${renderHSSBody()}</div>
+  </div>`;
 }
 
 // ===== 문진 답변 수정 (환자가 잘못 표현한 부분을 원장이 직접 고칠 수 있도록) =====
@@ -465,6 +555,13 @@ function renderQuestionRow(q) {
   return h;
 }
 
+// 카테고리 카드 중 하나를 맨 앞으로 옮깁니다 (예: 감정을 형색성정 바로 다음, 문진 카드 중 맨 앞에 배치).
+function moveCatToFront(cats, name) {
+  const idx = cats.findIndex(c => c.name === name);
+  if (idx > 0) cats.unshift(cats.splice(idx, 1)[0]);
+  return cats;
+}
+
 function buildEditableCats() {
   const cats = [];
   let cur = null;
@@ -473,7 +570,7 @@ function buildEditableCats() {
     if (!cur || cur.name !== q.cat) { cur = { name: q.cat, rows: [] }; cats.push(cur); }
     cur.rows.push(renderQuestionRow(q));
   });
-  return cats;
+  return moveCatToFront(cats, '감정');
 }
 
 function saveCorrections(rowNum) {
@@ -542,7 +639,21 @@ function seedDoctorNotesFromAnswers() {
         better: ''
       }))
     : [{ cc: '', os: '', symptom: '', worse: '', better: '' }];
-  return { cc, memo: '', prescription: '' };
+  return { cc, memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
+}
+
+// 예전 버전에서 저장된 doctorNotes(주증상/메모만 있던 시절)를 열어도 형색성정 항목이
+// 비어있는 채로 안전하게 동작하도록 빠진 필드를 채워줍니다.
+function normalizeDoctorNotes(n) {
+  if (!n.cc || n.cc.length === 0) n.cc = [{ cc: '', os: '', symptom: '', worse: '', better: '' }];
+  if (n.memo === undefined) n.memo = '';
+  if (n.prescription === undefined) n.prescription = '';
+  if (n.tendency === undefined) n.tendency = null;
+  if (n.myunsaek === undefined) n.myunsaek = null;
+  if (n.bulgeun === undefined) n.bulgeun = null;
+  if (!Array.isArray(n.gita)) n.gita = [];
+  if (!n.anjin || typeof n.anjin !== 'object') n.anjin = {};
+  return n;
 }
 
 function ccRow(label, field, i, val, shaded) {
@@ -615,7 +726,7 @@ function renderSidePanel(rowNum) {
     <textarea class="memo-textarea" id="memo-presc" oninput="doctorNotes.prescription=this.value" placeholder="처방 내용을 적어주세요...">${esc(doctorNotes.prescription || '')}</textarea>
   </div>`;
   h += `<div class="save-bar">
-    <button onclick="saveNotes(${rowNum})">메모 저장</button>
+    <button onclick="saveNotes(${rowNum})">저장 (형색성정·주증상·메모)</button>
     <span class="save-status" id="notes-save-status"></span>
   </div>`;
   return h;
@@ -636,7 +747,13 @@ function renderDetail(i) {
     selectedGender = r.gender || null;
     let parsedNotes = null;
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
-    doctorNotes = parsedNotes || seedDoctorNotesFromAnswers();
+    doctorNotes = normalizeDoctorNotes(parsedNotes || seedDoctorNotesFromAnswers());
+    // 이전 버전에서는 성향을 이 브라우저의 localStorage에만 저장했습니다.
+    // 아직 구글시트에 저장된 성향 값이 없다면, 예전에 로컬에 남겨둔 값을 이어서 씁니다.
+    if (doctorNotes.tendency === null) {
+      const legacy = localStorage.getItem('tendency_' + r.rowNum);
+      if (legacy !== null) doctorNotes.tendency = parseInt(legacy, 10);
+    }
     editingRowNum = r.rowNum;
   }
 
@@ -656,11 +773,7 @@ function renderDetail(i) {
     ${bmi ? `<div class="bmi-note">BMI ${bmi.toFixed(1)}</div>` : `<div class="bmi-note">키/몸무게 정보가 없어 계산할 수 없습니다.</div>`}
   </div>`;
 
-  h += `<div class="tendency-box">
-    <h3>환자 성향</h3>
-    <div class="sub">자동 계산이 아니라, 원장님이 진료 중 직접 판단해 표시하는 항목입니다.</div>
-    <div class="dot-scale">${renderTendencyDots(r.rowNum)}</div>
-  </div>`;
+  h += renderHSS();
 
   if (r.symptoms) {
     h += `<div class="symptom-box"><h3>환자가 직접 적은 증상</h3><pre>${esc(r.symptoms)}</pre></div>`;
@@ -682,7 +795,7 @@ function renderDetail(i) {
     h += `</div>`;
   } else {
     // raw 데이터가 없거나 손상된 옛 기록은 예전처럼 읽기 전용 텍스트로 보여줍니다.
-    const cats = parseSummary(r.summary);
+    const cats = moveCatToFront(parseSummary(r.summary), '감정');
     h += `<div class="cat-grid">`;
     cats.forEach(cat => {
       h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
