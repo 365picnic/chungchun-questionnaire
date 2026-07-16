@@ -53,6 +53,10 @@ function doPost(e) {
   sheet.getRange(lastRow, 1, 1, 11).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   sheet.setRowHeight(lastRow, 21);
 
+  // 전화번호가 "01012345678"처럼 숫자로만 되어 있으면 구글시트가 자동으로 숫자로 인식해서
+  // 맨 앞 0을 지워버리므로, 전화번호 칸은 텍스트 서식으로 바꾼 뒤 값을 다시 정확히 넣어줍니다.
+  sheet.getRange(lastRow, 3).setNumberFormat('@').setValue(data.phone || '');
+
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok' }))
     .setMimeType(ContentService.MimeType.JSON);

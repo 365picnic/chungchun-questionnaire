@@ -195,6 +195,16 @@ function unlock() {
   tryLoadWithKey();
 }
 
+// 구글시트가 "01090261075" 같은 전화번호를 숫자로 자동 인식해서 맨 앞 0이 사라지는 경우가 있어
+// (이때 r.phone은 문자열이 아니라 숫자가 되어 .includes() 검색도 깨집니다), 불러온 직후 복구합니다.
+function formatPhone(v) {
+  if (v === undefined || v === null || v === '') return '';
+  let s = String(v).trim();
+  if (/^[1-9][0-9]{8,9}$/.test(s)) s = '0' + s;
+  return s;
+}
+function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
+
 async function tryLoadWithKey() {
   document.getElementById('lock-err').textContent = '';
   try {
@@ -208,7 +218,7 @@ async function tryLoadWithKey() {
       return;
     }
     sessionStorage.setItem('admin_key', adminKey);
-    records = data;
+    records = data.map(normalizeRecord);
     document.getElementById('lock-screen').style.display = 'none';
     document.getElementById('dash').style.display = 'block';
     renderList();
@@ -223,7 +233,7 @@ async function loadData() {
     const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
     const data = await res.json();
     if (Array.isArray(data)) {
-      records = data;
+      records = data.map(normalizeRecord);
       renderList();
       if (selectedIdx !== null) renderDetail(selectedIdx);
       updateTimestamp();
