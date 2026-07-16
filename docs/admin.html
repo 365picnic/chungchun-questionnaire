@@ -77,6 +77,32 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; backgrou
 .symptom-box h3 { font-size: 13px; color: #b8860b; margin-bottom: 8px; }
 .symptom-box pre { white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.7; color: #5a4a1e; }
 
+/* 두 칸 레이아웃: 왼쪽 문진 내용 / 오른쪽 주증상·메모 */
+.two-col { display: flex; gap: 16px; align-items: flex-start; }
+.col-main { flex: 1; min-width: 0; }
+.col-side { width: 320px; flex-shrink: 0; }
+
+.side-box { background: #fff; border: 1px solid #e2e6ee; border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+.side-box-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.side-box-hdr h3 { font-size: 13px; color: #26304a; font-weight: 700; }
+.side-btn { background: #3a7bd5; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.side-btn:hover { background: #2f66b3; }
+.side-btn.ghost { background: #eef1f8; color: #3a7bd5; }
+.side-btn.ghost:hover { background: #e2e8fb; }
+
+.cc-card { border: 1px solid #eef0f5; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+.cc-card:last-child { margin-bottom: 0; }
+.cc-remove { text-align: right; font-size: 10.5px; color: #e74c3c; cursor: pointer; padding: 4px 8px 0; }
+.cc-row { display: flex; align-items: stretch; border-top: 1px solid #eef0f5; }
+.cc-row:first-child { border-top: none; }
+.cc-row.shaded { background: #f7f8fb; }
+.cc-label { width: 60px; flex-shrink: 0; background: #8a92a6; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 4px; }
+.cc-input { flex: 1; border: none; background: transparent; font-size: 12.5px; padding: 8px 10px; resize: vertical; min-height: 34px; font-family: inherit; color: #26304a; }
+.cc-input:focus { outline: none; background: #fbfcff; }
+
+.memo-textarea { width: 100%; border: 1px solid #e2e6ee; border-radius: 10px; padding: 10px; font-size: 12.5px; resize: vertical; min-height: 90px; font-family: inherit; color: #26304a; }
+.memo-textarea.big { min-height: 320px; }
+
 .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .cat-card { background: #fff; border: 1px solid #e2e6ee; border-radius: 14px; overflow: hidden; }
 .cat-card .cat-hdr { background: linear-gradient(135deg, #3a7bd5, #6c5ce7); color: #fff; font-size: 12.5px; font-weight: 700; padding: 9px 16px; }
@@ -155,6 +181,10 @@ let selectedIdx = null;
 let answers = {};
 let selectedGender = null;
 let editingRowNum = null;
+
+// 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
+// editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
+let doctorNotes = { cc: [], memo: '', prescription: '' };
 
 if (adminKey) tryLoadWithKey();
 
@@ -456,6 +486,99 @@ function splitQA(text) {
   return [text.slice(0, idx), text.slice(idx + 2)];
 }
 
+// ===== 주증상(CC) / 진료메모 / 처방메모 =====
+// 환자가 문진 마지막에 직접 적은 증상(answers.symptoms)이 있으면 그것을 CC 카드의 시작값으로 보여주고,
+// 없으면 원장님이 처음부터 채울 수 있도록 빈 카드 1개로 시작합니다.
+function seedDoctorNotesFromAnswers() {
+  const syms = Array.isArray(answers.symptoms) ? answers.symptoms : [];
+  const cc = syms.length
+    ? syms.map(s => ({
+        cc: '',
+        os: s.since || '',
+        symptom: [s.symptom, s.how ? `(${s.how})` : ''].filter(Boolean).join(' '),
+        worse: '',
+        better: ''
+      }))
+    : [{ cc: '', os: '', symptom: '', worse: '', better: '' }];
+  return { cc, memo: '', prescription: '' };
+}
+
+function ccRow(label, field, i, val, shaded) {
+  return `<div class="cc-row${shaded ? ' shaded' : ''}"><span class="cc-label">${esc(label)}</span><textarea class="cc-input" oninput="updateCC(${i},'${field}',this.value)">${esc(val || '')}</textarea></div>`;
+}
+
+function renderChiefComplaints() {
+  return doctorNotes.cc.map((c, i) => {
+    let h = `<div class="cc-card">`;
+    if (doctorNotes.cc.length > 1) h += `<div class="cc-remove" onclick="removeCC(${i})">삭제</div>`;
+    h += ccRow('CC', 'cc', i, c.cc);
+    h += ccRow('O/S', 'os', i, c.os, true);
+    h += ccRow('증상', 'symptom', i, c.symptom);
+    h += ccRow('악화요인', 'worse', i, c.worse, true);
+    h += ccRow('완화요인', 'better', i, c.better);
+    h += `</div>`;
+    return h;
+  }).join('');
+}
+
+// 텍스트 입력은 매 글자마다 다시 그리면 커서 위치가 튀므로, 값만 조용히 갱신하고 화면은 다시 그리지 않습니다.
+function updateCC(i, field, val) { if (doctorNotes.cc[i]) doctorNotes.cc[i][field] = val; }
+
+function addCC() {
+  doctorNotes.cc.push({ cc: '', os: '', symptom: '', worse: '', better: '' });
+  document.getElementById('cc-list').innerHTML = renderChiefComplaints();
+}
+function removeCC(i) {
+  doctorNotes.cc.splice(i, 1);
+  if (doctorNotes.cc.length === 0) doctorNotes.cc.push({ cc: '', os: '', symptom: '', worse: '', better: '' });
+  document.getElementById('cc-list').innerHTML = renderChiefComplaints();
+}
+
+function toggleBig(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isBig = el.classList.toggle('big');
+  if (btn) btn.textContent = isBig ? '작게보기' : '크게보기';
+}
+
+function saveNotes(rowNum) {
+  const status = document.getElementById('notes-save-status');
+  if (status) { status.textContent = '저장 중...'; status.className = 'save-status'; }
+  const payload = { action: 'update', key: adminKey, rowNum: rowNum, notes: JSON.stringify(doctorNotes) };
+  fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+    .then(() => {
+      const r = records[selectedIdx];
+      if (r) r.doctorNotes = payload.notes;
+      const st = document.getElementById('notes-save-status');
+      if (st) { st.textContent = '저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')'; st.className = 'save-status ok'; }
+    })
+    .catch(() => {
+      const st = document.getElementById('notes-save-status');
+      if (st) { st.textContent = '저장 실패 - 네트워크를 확인해주세요.'; st.className = 'save-status err'; }
+    });
+}
+
+function renderSidePanel(rowNum) {
+  let h = '';
+  h += `<div class="side-box">
+    <div class="side-box-hdr"><h3>주증상</h3><button class="side-btn" onclick="addCC()">CC 추가</button></div>
+    <div id="cc-list">${renderChiefComplaints()}</div>
+  </div>`;
+  h += `<div class="side-box">
+    <div class="side-box-hdr"><h3>진료메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-note', this)">크게보기</button></div>
+    <textarea class="memo-textarea" id="memo-note" oninput="doctorNotes.memo=this.value" placeholder="진료 중 원장님 의견을 적어주세요...">${esc(doctorNotes.memo || '')}</textarea>
+  </div>`;
+  h += `<div class="side-box">
+    <div class="side-box-hdr"><h3>처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>
+    <textarea class="memo-textarea" id="memo-presc" oninput="doctorNotes.prescription=this.value" placeholder="처방 내용을 적어주세요...">${esc(doctorNotes.prescription || '')}</textarea>
+  </div>`;
+  h += `<div class="save-bar">
+    <button onclick="saveNotes(${rowNum})">메모 저장</button>
+    <span class="save-status" id="notes-save-status"></span>
+  </div>`;
+  return h;
+}
+
 function renderDetail(i) {
   selectedIdx = i;
   renderList();
@@ -463,6 +586,17 @@ function renderDetail(i) {
 
   let editableAnswers = null;
   try { editableAnswers = r.raw ? JSON.parse(r.raw) : null; } catch (e) { editableAnswers = null; }
+
+  // 환자를 새로 열었을 때만 원본 데이터로 초기화합니다. 같은 환자를 다시 그릴 때는
+  // (문진 답변을 고치거나 주증상/메모를 입력한 내용이 지워지지 않도록) 그대로 유지합니다.
+  if (editingRowNum !== r.rowNum) {
+    answers = editableAnswers || {};
+    selectedGender = r.gender || null;
+    let parsedNotes = null;
+    try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
+    doctorNotes = parsedNotes || seedDoctorNotesFromAnswers();
+    editingRowNum = r.rowNum;
+  }
 
   let h = '';
   h += `<div class="patient-card">
@@ -493,14 +627,6 @@ function renderDetail(i) {
   if (editableAnswers) {
     // 실제 라디오버튼/체크박스로 문진 답변을 그려서, 원장님이 진료 중 환자와 함께 보면서
     // 잘못 표현된 답변이 있으면 바로 클릭해서 고칠 수 있게 합니다.
-    // 환자를 새로 열었을 때만 원본으로 초기화하고, 같은 환자를 다시 그릴 때는
-    // (클릭해서 고친 내용이 지워지지 않도록) answers를 그대로 유지합니다.
-    if (editingRowNum !== r.rowNum) {
-      answers = editableAnswers;
-      selectedGender = r.gender || null;
-      editingRowNum = r.rowNum;
-    }
-
     h += `<div class="save-bar">
       <button onclick="saveCorrections(${r.rowNum})">수정 내용 저장</button>
       <span class="save-status" id="save-status"></span>
@@ -533,7 +659,10 @@ function renderDetail(i) {
   h += `<div class="raw-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='block' ? 'none' : 'block'">원본 데이터 보기(백업용)</div>`;
   h += `<div class="raw-box">${esc(r.raw || '')}</div>`;
 
-  document.getElementById('detail').innerHTML = h;
+  const sideH = renderSidePanel(r.rowNum);
+
+  document.getElementById('detail').innerHTML =
+    `<div class="two-col"><div class="col-main">${h}</div><div class="col-side">${sideH}</div></div>`;
 }
 </script>
 </body>

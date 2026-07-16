@@ -44,12 +44,13 @@ function doPost(e) {
     data.gender || '',
     data.summary || '',
     data.symptoms || '',
-    data.raw || ''
+    data.raw || '',
+    '' // 원장 메모(JSON) - 접수 시점에는 비어있고, 진료 중 관리자페이지에서 채워집니다.
   ]);
 
   // 문진 요약처럼 줄바꿈이 많은 칸 때문에 행이 세로로 길게 늘어나지 않도록 설정
   var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, 10).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.getRange(lastRow, 1, 1, 11).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   sheet.setRowHeight(lastRow, 21);
 
   return ContentService
@@ -57,9 +58,9 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// 관리자페이지(admin.html)에서 "수정 내용 저장"을 눌렀을 때 실행되는 부분.
-// 원장님만 접근 가능하도록 ADMIN_KEY 를 반드시 확인한 뒤, 문진 요약(H열)과
-// 원본데이터(J열)만 해당 환자의 행 번호(rowNum)에 덮어씁니다.
+// 관리자페이지(admin.html)에서 "저장" 버튼을 눌렀을 때 실행되는 부분.
+// 원장님만 접근 가능하도록 ADMIN_KEY 를 반드시 확인한 뒤, 요청에 실제로 담겨 온
+// 항목만 해당 환자의 행 번호(rowNum)에 덮어씁니다. (문진 답변 수정 / 주증상·메모 저장 공용)
 function handleUpdate_(data) {
   if (!data.key || data.key !== ADMIN_KEY) {
     return jsonOutput_({ status: 'error', message: 'invalid key' });
@@ -69,8 +70,9 @@ function handleUpdate_(data) {
   if (!rowNum || rowNum < 2 || rowNum > sheet.getLastRow()) {
     return jsonOutput_({ status: 'error', message: 'invalid rowNum' });
   }
-  sheet.getRange(rowNum, 8).setValue(data.summary || ''); // 문진 요약
-  sheet.getRange(rowNum, 10).setValue(data.raw || '');    // 원본데이터(JSON)
+  if (data.summary !== undefined) sheet.getRange(rowNum, 8).setValue(data.summary || '');  // 문진 요약
+  if (data.raw !== undefined) sheet.getRange(rowNum, 10).setValue(data.raw || '');         // 원본데이터(JSON)
+  if (data.notes !== undefined) sheet.getRange(rowNum, 11).setValue(data.notes || '');     // 원장 메모(JSON)
   return jsonOutput_({ status: 'ok' });
 }
 
@@ -87,7 +89,7 @@ function doGet(e) {
   if (lastRow < 2) {
     return jsonOutput_([]);
   }
-  var values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
   var records = values.map(function (row, i) {
     return {
       rowNum: i + 2,
@@ -100,7 +102,8 @@ function doGet(e) {
       gender: row[6],
       summary: row[7],
       symptoms: row[8],
-      raw: row[9]
+      raw: row[9],
+      doctorNotes: row[10]
     };
   }).reverse(); // 최신 제출 건이 먼저 오도록
 
@@ -113,9 +116,19 @@ function fixExistingRowHeights() {
   var sheet = getOrCreateSheet_();
   var lastRow = sheet.getLastRow();
   if (lastRow < 1) return;
-  sheet.getRange(1, 1, lastRow, 10).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.getRange(1, 1, lastRow, 11).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   for (var r = 1; r <= lastRow; r++) {
     sheet.setRowHeight(r, 21);
+  }
+}
+
+// 이 코드를 처음 붙여넣기 전부터 시트에 응답이 쌓여 있었다면, K열(원장 메모) 헤더가
+// 없을 수 있습니다. Apps Script 편집기에서 이 함수를 한 번 "실행"하면 헤더만 추가됩니다.
+function addDoctorNotesColumnIfMissing() {
+  var sheet = getOrCreateSheet_();
+  var header = sheet.getRange(1, 11).getValue();
+  if (!header) {
+    sheet.getRange(1, 11).setValue('원장 메모(JSON)').setFontWeight('bold');
   }
 }
 
@@ -134,10 +147,10 @@ function getOrCreateSheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow([
       '제출일시', '이름', '전화번호', '생년월일', '키(cm)', '몸무게(kg)', '성별',
-      '문진 요약', '증상(직접입력)', '원본데이터(JSON, 백업용)'
+      '문진 요약', '증상(직접입력)', '원본데이터(JSON, 백업용)', '원장 메모(JSON)'
     ]);
     sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
   }
   return sheet;
 }
