@@ -133,6 +133,32 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .side-btn.ghost { background: var(--brand-soft); color: var(--brand-1); }
 .side-btn.ghost:hover { background: #e2e5f9; }
 
+/* AI 처방 추천 */
+.ai-run-btn { width: 100%; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 11px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
+.ai-run-btn:hover { box-shadow: var(--shadow-md); }
+.ai-run-btn:disabled { opacity: .6; cursor: not-allowed; }
+.ai-status { font-size: 12px; color: var(--ink-500); margin-top: 8px; }
+.ai-status.err { color: var(--danger); font-weight: 600; }
+.ai-note { font-size: 11px; color: var(--ink-300); margin-top: 6px; line-height: 1.5; }
+.ai-candidate { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+.ai-candidate:hover { border-color: var(--brand-2); background: #fbfbff; }
+.ai-cand-top { display: flex; align-items: baseline; gap: 8px; }
+.ai-cand-rank { font-size: 10.5px; font-weight: 700; color: #fff; background: var(--ink-300); border-radius: 8px; padding: 1px 7px; flex-shrink: 0; }
+.ai-candidate:nth-child(1) .ai-cand-rank { background: var(--brand-1); }
+.ai-cand-name { font-size: 13px; font-weight: 700; color: var(--ink-900); flex: 1; }
+.ai-cand-fit { font-size: 12.5px; font-weight: 700; color: var(--brand-1); }
+.ai-fit-bar { height: 5px; background: var(--line-soft); border-radius: 4px; margin: 6px 0; overflow: hidden; }
+.ai-fit-fill { height: 100%; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); border-radius: 4px; }
+.ai-cand-note { font-size: 11.5px; color: var(--ink-500); }
+.ai-toggle { font-size: 10.5px; color: var(--brand-2); margin-top: 6px; text-decoration: underline; }
+.ai-reasons { font-size: 11px; margin-top: 6px; line-height: 1.6; }
+.ai-reasons .m { color: var(--success); }
+.ai-reasons .x { color: var(--ink-500); }
+.ai-questions { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.ai-questions h4 { font-size: 12px; color: var(--ink-900); margin-bottom: 6px; }
+.ai-questions ul { padding-left: 18px; }
+.ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 4px; line-height: 1.5; }
+
 .cc-card { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; }
 .cc-card:last-child { margin-bottom: 0; }
 .cc-remove { text-align: right; font-size: 10.5px; color: var(--danger); cursor: pointer; padding: 4px 8px 0; }
@@ -236,6 +262,9 @@ let editingRowNum = null;
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
 let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
+
+// AI 처방 추천 결과(마지막으로 받은 것) - "근거 보기"/"처방메모에 담기" 버튼에서 참조합니다.
+let lastAiResult = null;
 
 if (adminKey) tryLoadWithKey();
 
@@ -738,6 +767,120 @@ function saveNotes(rowNum) {
     });
 }
 
+// 0~6 dot-scale 값을 사람이 읽을 수 있는 텍스트로 변환 (AI에게 보낼 요약용)
+function scaleLabel(idx, left, right) {
+  if (idx === null || idx === undefined) return '미기록';
+  const steps = ['매우 ' + left, left, '약간 ' + left, '중간', '약간 ' + right, right, '매우 ' + right];
+  return steps[idx] !== undefined ? steps[idx] : String(idx);
+}
+
+// 현재 열려있는 환자의 문진 답변 / 형색성정 / 안진 / 주증상 / 진료메모를 AI에게 보낼
+// 하나의 텍스트로 정리합니다. answers/selectedGender는 이미 이 환자 것으로 채워져 있습니다.
+function buildPatientDataForAi(r) {
+  const bmi = calcBMI(r.height, r.weight);
+  const lines = [];
+  lines.push(`이름: ${r.name || '-'} / 성별: ${r.gender || '-'} / 생년월일: ${r.birthDate || '-'}`);
+  lines.push(`키/몸무게: ${r.height || '-'}cm / ${r.weight || '-'}kg (BMI ${bmi ? bmi.toFixed(1) : '-'})`);
+  lines.push('');
+  lines.push('[형색성정 - 원장 판단]');
+  lines.push(`성향: ${scaleLabel(doctorNotes.tendency, '양적', '음적')}`);
+  lines.push(`면색: ${scaleLabel(doctorNotes.myunsaek, '짙은편', '옅은편')}`);
+  lines.push(`붉은기: ${doctorNotes.bulgeun || '미기록'}`);
+  lines.push(`기타: ${doctorNotes.gita.length ? doctorNotes.gita.join(', ') : '해당없음'}`);
+  const anjinFound = Object.keys(doctorNotes.anjin).filter(k => doctorNotes.anjin[k] > 0).map(k => `${k}(${doctorNotes.anjin[k]}/3)`);
+  lines.push(`안진: ${anjinFound.length ? anjinFound.join(', ') : '기록없음'}`);
+  lines.push('');
+  lines.push('[주증상(CC)]');
+  const ccLines = doctorNotes.cc.filter(c => c.cc || c.symptom).map(c => `- CC: ${c.cc || '-'} / O·S: ${c.os || '-'} / 증상: ${c.symptom || '-'} / 악화요인: ${c.worse || '-'} / 완화요인: ${c.better || '-'}`);
+  lines.push(ccLines.length ? ccLines.join('\n') : '(입력 없음)');
+  lines.push('');
+  lines.push('[문진 답변]');
+  lines.push(buildSummary() || '(답변 없음)');
+  if (r.symptoms) {
+    lines.push('');
+    lines.push('[환자가 직접 적은 증상]');
+    lines.push(r.symptoms);
+  }
+  lines.push('');
+  lines.push('[진료메모]');
+  lines.push(doctorNotes.memo || '(없음)');
+  return lines.join('\n');
+}
+
+function runAiRecommend(rowNum) {
+  const status = document.getElementById('ai-status');
+  const resultEl = document.getElementById('ai-result');
+  const btn = document.getElementById('ai-run-btn');
+  if (btn) btn.disabled = true;
+  if (status) { status.textContent = 'AI가 분석 중입니다... (몇 초 정도 걸릴 수 있어요)'; status.className = 'ai-status'; }
+  if (resultEl) resultEl.innerHTML = '';
+
+  const r = records[selectedIdx];
+  const patientData = buildPatientDataForAi(r);
+  const payload = { action: 'ai_recommend', key: adminKey, patientData: patientData };
+
+  fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
+    .then(res => res.json())
+    .then(data => {
+      if (btn) btn.disabled = false;
+      if (!data || data.status !== 'ok') {
+        if (status) { status.textContent = (data && data.message) || 'AI 분석에 실패했습니다.'; status.className = 'ai-status err'; }
+        return;
+      }
+      lastAiResult = data.result;
+      if (status) status.textContent = '';
+      if (resultEl) resultEl.innerHTML = renderAiResult(data.result);
+    })
+    .catch(() => {
+      if (btn) btn.disabled = false;
+      if (status) { status.textContent = '서버에 연결하지 못했습니다. 네트워크를 확인해주세요.'; status.className = 'ai-status err'; }
+    });
+}
+
+function toggleAiReasons(btn) {
+  const el = btn.nextElementSibling;
+  const showing = el.style.display === 'block';
+  el.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '근거 보기' : '근거 숨기기';
+}
+
+function fillMemoFromCandidate(i) {
+  if (!lastAiResult || !lastAiResult.candidates || !lastAiResult.candidates[i]) return;
+  const c = lastAiResult.candidates[i];
+  const matched = (c.matched || []).map(m => '- ' + m).join('\n');
+  const missing = (c.missing || []).map(m => '- ' + m).join('\n');
+  const text = `[AI 추천] ${c.name} (적합도 ${c.fit_percent}%)\n${c.note || ''}\n\n[일치하는 근거]\n${matched || '(없음)'}\n\n[확인이 더 필요한 부분]\n${missing || '(없음)'}`;
+  doctorNotes.prescription = (doctorNotes.prescription ? doctorNotes.prescription + '\n\n---\n\n' : '') + text;
+  const el = document.getElementById('memo-presc');
+  if (el) el.value = doctorNotes.prescription;
+}
+
+function renderAiResult(result) {
+  const candidates = result.candidates || [];
+  const questions = result.additional_questions || [];
+  let h = '<div class="ai-candidates">';
+  candidates.forEach((c, i) => {
+    const matched = (c.matched || []).map(m => `<div class="m">✓ ${esc(m)}</div>`).join('');
+    const missing = (c.missing || []).map(m => `<div class="x">? ${esc(m)}</div>`).join('');
+    h += `<div class="ai-candidate" onclick="fillMemoFromCandidate(${i})">
+      <div class="ai-cand-top">
+        <span class="ai-cand-rank">${i + 1}순위</span>
+        <span class="ai-cand-name">${esc(c.name || '-')}</span>
+        <span class="ai-cand-fit">${c.fit_percent != null ? c.fit_percent + '%' : '-'}</span>
+      </div>
+      <div class="ai-fit-bar"><div class="ai-fit-fill" style="width:${Math.max(0, Math.min(100, c.fit_percent || 0))}%"></div></div>
+      <div class="ai-cand-note">${esc(c.note || '')}</div>
+      <div class="ai-toggle" onclick="event.stopPropagation();toggleAiReasons(this)">근거 보기</div>
+      <div class="ai-reasons" style="display:none">${matched}${missing}</div>
+    </div>`;
+  });
+  h += '</div>';
+  if (questions.length) {
+    h += `<div class="ai-questions"><h4>환자에게 추가로 확인하면 좋은 질문</h4><ul>${questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>`;
+  }
+  return h;
+}
+
 function renderSidePanel(rowNum) {
   let h = '';
   h += `<div class="side-box">
@@ -747,6 +890,13 @@ function renderSidePanel(rowNum) {
   h += `<div class="side-box">
     <div class="side-box-hdr"><h3>진료메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-note', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="memo-note" oninput="doctorNotes.memo=this.value" placeholder="진료 중 원장님 의견을 적어주세요...">${esc(doctorNotes.memo || '')}</textarea>
+  </div>`;
+  h += `<div class="side-box">
+    <div class="side-box-hdr"><h3>✨ AI 처방 추천</h3></div>
+    <button class="ai-run-btn" id="ai-run-btn" onclick="runAiRecommend(${rowNum})">🤖 AI 처방 분석 실행</button>
+    <div class="ai-note">문진·형색성정·안진 데이터를 바탕으로 후보를 제시합니다. 최종 처방은 원장님이 직접 판단해주세요.</div>
+    <div class="ai-status" id="ai-status"></div>
+    <div id="ai-result"></div>
   </div>`;
   h += `<div class="side-box">
     <div class="side-box-hdr"><h3>처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>

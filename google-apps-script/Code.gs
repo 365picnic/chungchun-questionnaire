@@ -16,6 +16,14 @@
  * ※ 이미 배포되어 있는 상태에서 이 코드 내용을 바꿨다면 (예: handleUpdate_ 추가),
  *    새로 배포하지 말고 우측 상단 "배포 > 배포 관리"에서 연필(수정) 아이콘을 눌러
  *    기존 배포에 "새 버전"으로 반영해야 웹 앱 URL이 그대로 유지됩니다.
+ *
+ * ※ AI 처방 추천 기능을 쓰려면 아래 두 가지가 추가로 필요합니다.
+ *    1. 이 프로젝트에 google-apps-script/PrescriptionKnowledge.gs 파일도 똑같이
+ *       추가해야 합니다 (Apps Script 편집기 좌측 파일 목록 옆 "+" > 스크립트 > 이름을
+ *       PrescriptionKnowledge로 저장 후 내용 붙여넣기).
+ *    2. 편집기 좌측 톱니바퀴(프로젝트 설정) > "스크립트 속성" > 속성 추가에서
+ *       이름: ANTHROPIC_API_KEY, 값: 원장님의 Anthropic API 키(console.anthropic.com에서
+ *       직접 발급)를 등록해야 합니다. 코드에는 절대 키를 직접 적지 않습니다.
  */
 
 var SHEET_NAME = '문진응답';
@@ -30,6 +38,10 @@ function doPost(e) {
   // 관리자페이지에서 원장님이 문진 답변을 직접 고쳐서 저장할 때 (신규 접수가 아니라 기존 행 수정)
   if (data.action === 'update') {
     return handleUpdate_(data);
+  }
+  // 관리자페이지의 "AI 처방 분석 실행" 버튼
+  if (data.action === 'ai_recommend') {
+    return handleAiRecommend_(data);
   }
 
   var sheet = getOrCreateSheet_();
@@ -78,6 +90,91 @@ function handleUpdate_(data) {
   if (data.raw !== undefined) sheet.getRange(rowNum, 10).setValue(data.raw || '');         // 원본데이터(JSON)
   if (data.notes !== undefined) sheet.getRange(rowNum, 11).setValue(data.notes || '');     // 원장 메모(JSON)
   return jsonOutput_({ status: 'ok' });
+}
+
+// 관리자페이지의 "AI 처방 분석 실행" 버튼 — Claude API를 호출해 문진/형색성정/안진 데이터를
+// PrescriptionKnowledge.gs의 임상 지식베이스와 대조시켜 후보 처방을 추천받습니다.
+// API 키는 절대 admin.html(클라이언트, 누구나 볼 수 있는 코드)에 두지 않고, 이 Apps Script
+// 프로젝트의 "스크립트 속성"에만 저장합니다 (편집기 좌측 톱니바퀴 > 스크립트 속성).
+// 이 함수가 내리는 결과는 진단이 아니라 원장님의 검토를 돕는 참고자료일 뿐입니다.
+function handleAiRecommend_(data) {
+  if (!data.key || data.key !== ADMIN_KEY) {
+    return jsonOutput_({ status: 'error', message: 'invalid key' });
+  }
+  var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  if (!apiKey) {
+    return jsonOutput_({ status: 'error', message: 'API 키가 설정되지 않았습니다. Apps Script 편집기 좌측 톱니바퀴(프로젝트 설정) > 스크립트 속성에 ANTHROPIC_API_KEY를 추가해주세요.' });
+  }
+
+  var patientInfo = data.patientData || '';
+  var systemPrompt = PRESCRIPTION_KNOWLEDGE + '\n\n' +
+    '당신은 위 상한금궤방 임상 지식베이스를 참고해 한의사(원장)의 처방 결정을 돕는 보조 도구입니다. ' +
+    '진단이나 처방을 확정하는 것이 아니라, 후보를 추려 원장이 빠르게 검토할 수 있도록 돕는 역할입니다. ' +
+    '최종 처방 결정은 반드시 원장이 직접 합니다. ' +
+    '아래 환자의 문진 답변/형색성정/안진 소견을 위 지식베이스와 대조해서, 가능성이 높은 처방 후보를 3~5개 ' +
+    '적합도(fit_percent, 0~100 정수)와 함께 순위대로 제시하고, 판단이 애매하거나 후보를 좁히는 데 ' +
+    '결정적일 추가 확인 질문도 제안하세요. 근거 없이 추측하지 말고, 정보가 부족하면 fit_percent를 ' +
+    '보수적으로 낮게 매기세요. ' +
+    '반드시 아래 JSON 형식으로만 응답하고, 다른 설명이나 코드블록 표시(```) 없이 순수 JSON 텍스트만 ' +
+    '출력하세요.\n\n' +
+    '{"candidates":[{"name":"처방명","fit_percent":82,"matched":["일치하는 근거"],"missing":["불확실하거나 부족한 근거"],"note":"한 줄 설명"}],"additional_questions":["환자에게 추가로 확인하면 좋을 질문"]}';
+
+  var payload = {
+    model: 'claude-sonnet-5',
+    max_tokens: 3000,
+    temperature: 0.3,
+    system: [
+      { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }
+    ],
+    messages: [
+      { role: 'user', content: '환자 정보(문진 답변 / 형색성정 / 안진 / 주증상):\n' + patientInfo }
+    ]
+  };
+
+  var res;
+  try {
+    res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    return jsonOutput_({ status: 'error', message: 'Claude API 호출 실패: ' + err.message });
+  }
+
+  var code = res.getResponseCode();
+  var bodyText = res.getContentText();
+  if (code !== 200) {
+    return jsonOutput_({ status: 'error', message: 'Claude API 오류(' + code + '): ' + bodyText.slice(0, 300) });
+  }
+
+  var parsed;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch (e) {
+    return jsonOutput_({ status: 'error', message: 'API 응답을 해석하지 못했습니다.' });
+  }
+
+  var text = '';
+  if (parsed.content && parsed.content.length) {
+    text = parsed.content.map(function (c) { return c.text || ''; }).join('');
+  }
+
+  var resultJson;
+  try {
+    var cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    resultJson = JSON.parse(cleaned);
+  } catch (e) {
+    return jsonOutput_({ status: 'error', message: 'AI 응답을 해석하지 못했습니다.', raw: text.slice(0, 500) });
+  }
+
+  return jsonOutput_({ status: 'ok', result: resultJson });
 }
 
 function doGet(e) {
