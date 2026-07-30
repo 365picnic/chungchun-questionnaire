@@ -6,7 +6,7 @@ const Q = [
  opts:["잘 자는 편","못 자는 편"],
  sub:{"못 자는 편":[
    {id:"sleep_severity",title:"어느 정도 못 주무시나요?",type:"single",opts:["매우 못자는 편","어느 정도","약간"]},
-   {id:"sleep_wake",title:"",type:"multi",opts:["잠은 드는데 자다가 자주 깬다"]}
+   {id:"sleep_wake",title:"",type:"multi",opts:["잠은 드는데 자다가 자주 깬다","새벽에 일찍 깨서 다시 못 잔다"]}
  ]}},
 
 {id:"sleep_important",cat:"잠",title:"내일 중요한 일 있으면?",type:"single",
@@ -34,7 +34,8 @@ const Q = [
  opts:["예","아니오"],
  sub:{"예":[
    {id:"chest_tight_freq",title:"가슴 답답함 빈도는?",type:"single",opts:["거의 매일","일주일 3~4번 정도","한달 3~4번 이하"]},
-   {id:"chest_tight_extra",title:"가슴이 답답하면?",type:"multi",opts:["잠이 더 안온다","한숨을 자주 쉰다","숨이 깊이 마셔지지 않는 느낌"]}
+   {id:"chest_tight_extra",title:"가슴이 답답하면?",type:"multi",opts:["잠이 더 안온다","한숨을 자주 쉰다","숨이 깊이 마셔지지 않는 느낌"]},
+   {id:"chest_tight_type",title:"답답한 느낌이 어느 쪽에 가깝나요?",type:"single",opts:["음식이 걸린 것처럼 답답하다","음식과 상관없이 그냥 답답하다"]}
  ]}},
 
 {id:"chest_compare",cat:"흉부",title:"가슴 두근거림, 답답함 어느 것이 더 심한가요?",type:"single",
@@ -43,6 +44,9 @@ const Q = [
 
 {id:"chest_pain",cat:"흉부",title:"가슴이 뻐근하게 아플 때가 많다.",type:"single",
  opts:["예","아니오"]},
+
+{id:"chest_stress",cat:"흉부",title:"스트레스를 받으면 가슴이 답답해지고 잠을 잘 못 잔다.",type:"single",
+ opts:["그렇다","아니다"]},
 
 {id:"stool_main",cat:"대변",title:"평소 대변은?",type:"single",
  opts:["거의 매일 정상변을 보는 편","변비 경향","설사~무른변 경향"],
@@ -60,6 +64,9 @@ const Q = [
    {id:"stool_gas_freq",title:"빈도는?",type:"single",opts:["거의 매일","일주일 3~4번 정도","한달 3~4번 이하"]}
  ]}},
 
+{id:"stool_residual",cat:"대변",title:"대변을 보고도 덜 본 듯 잔변감이 있나요?",type:"single",
+ opts:["그렇다","아니다"]},
+
 {id:"digest_main",cat:"소화",title:"평소 소화가?",type:"single",
  opts:["잘 되는 편","보통","잘 안되는 편"],
  sub:{"잘 안되는 편":[
@@ -68,7 +75,7 @@ const Q = [
  ]}},
 
 {id:"digest_symptom",cat:"소화",title:"소화가 안되면?",type:"multi",
- opts:["명치(위장)에서 음식이 내려가지 않는 듯 답답하다","가슴이나 목에서 음식이 내려가지 않는 듯 답답하다","소화가 안되면 식욕도 더 떨어지곤 한다","소화가 안 되더라도 식욕은 여전히 좋은 편이다"],
+ opts:["명치(위장)에서 음식이 내려가지 않는 듯 답답하다","가슴이나 목에서 음식이 내려가지 않는 듯 답답하다","소화가 안되면 식욕도 더 떨어지곤 한다","소화가 안 되더라도 식욕은 여전히 좋은 편이다","사실 명치·위장 부위가 불편한 것은 아니다"],
  cond:function(){return answers["digest_main"]==="잘 안되는 편"}},
 
 {id:"appetite",cat:"소화",title:"평소 식욕이?",type:"single",
@@ -130,11 +137,18 @@ const Q = [
 {id:"edema",cat:"부종",title:"평소 잘 붓는 편인가요?",type:"single",
  opts:["그렇다","아니다"],
  sub:{"그렇다":[
-   {id:"edema_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["오래 섰거나 걸으면 다리가 붓는다","양말 자국이 난다"]}
+   {id:"edema_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["오래 섰거나 걸으면 다리가 붓는다","양말 자국이 난다","운동하거나 움직이면 더 붓는다","관절(무릎 등)에 물이 차서 뺀 적이 있다"]}
  ]}},
 
 {id:"dizzy",cat:"현훈",title:"앉았다 일어나면 어지러울 때가 많나요?",type:"single",
  opts:["그렇다","아니다"]},
+
+{id:"headache_main",cat:"두통",title:"평소 두통이 있나요?",type:"single",
+ opts:["거의 없다","가끔 있다","자주 있다"],
+ sub:{"자주 있다":[
+   {id:"headache_type",title:"두통이 주로 어떤 느낌인가요?",type:"multi",opts:["열이 위로 치받는 듯한 느낌","머리가 무겁고 띵한 느낌","한쪽만 지끈거리는 편두통 양상","뒷목에서부터 올라오는 느낌"]},
+   {id:"headache_extra",title:"두통과 함께 나타나는 것이 있나요?",type:"multi",opts:["메스껍거나 토할 것 같다","어지럼증","뒷목이나 어깨가 뻣뻣하다","해당없음"]}
+ ]}},
 
 {id:"urine_freq",cat:"소변",title:"하루 소변보는 횟수가?",type:"single",
  opts:["자주 보는 편","보통","적게 보는 편"]},
@@ -161,7 +175,7 @@ const Q = [
  opts:["일주일 3~4번 이상","일주일 2~3회","한달 3~4번 이하","술이 안 맞는 것 같아 잘 안 마신다","안 마신다"]},
 
 {id:"alcohol_effect",cat:"술",title:"술을 조금만 마셔도?",type:"multi",
- opts:["얼굴~전신이 금방 붉어진다","금방 취한다","몸이 불편해진다","숙취가 오래간다","해당 없음"],
+ opts:["얼굴~전신이 금방 붉어진다","금방 취한다","몸이 불편해진다","숙취가 오래간다","피부에 두드러기나 발진이 잘 생긴다","해당 없음"],
  cond:function(){return answers["alcohol_freq"]!=="안 마신다"}},
 
 {id:"liver",cat:"술",title:"해당하는 것이 있나요?",type:"multi",
@@ -185,7 +199,7 @@ const Q = [
  opts:["없다","있다"],
  sub:{"있다":[
    {id:"menstrual_pain",title:"생리통이 있나요?",type:"single",opts:["심한편","어느 정도","약간","없다"]},
-   {id:"menstrual_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["생리혈이 검붉게 나온다","생리혈이 덩어리져 나온다","평소 멍이 잘 든다","생리시 몸살기처럼 으실으실 추워지곤 한다","생리시 아랫배를 따듯하게 지지곤 한다"]}
+   {id:"menstrual_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["생리혈이 검붉게 나온다","생리혈이 덩어리져 나온다","평소 멍이 잘 든다","다리에 정맥이 파랗게 튀어나와 보인다(하지정맥류)","생리시 몸살기처럼 으실으실 추워지곤 한다","생리시 아랫배를 따듯하게 지지곤 한다"]}
  ]},
  cond:function(){return selectedGender==="여자"}},
 
@@ -195,6 +209,15 @@ const Q = [
    {id:"cold_body",title:"",type:"multi",opts:["으실으실 춥거나 몸이 쑤시고 아프다"]}
  ],"목이 자주 붓는다":[
    {id:"cold_throat",title:"",type:"multi",opts:["침 삼키면 아프다"]}
+ ]}},
+
+{id:"nose_main",cat:"코",title:"평소 콧물이나 코막힘으로 불편한가요?",type:"single",
+ opts:["그렇다","아니다"],
+ sub:{"그렇다":[
+   {id:"nose_type",title:"콧물과 코막힘 중 어느 쪽이 더 심한가요?",type:"single",opts:["콧물이 더 심하다","코막힘이 더 심하다","둘 다 비슷하다"]},
+   {id:"nose_discharge",title:"콧물의 색깔은 주로?",type:"single",opts:["맑고 묽다","누렇고 끈적하다","맑을 때도 누럴 때도 있다","콧물은 거의 없다"]},
+   {id:"nose_trigger",title:"어떨 때 더 심해지나요?",type:"multi",opts:["찬바람을 쐬거나 추워지면","계절이 바뀔 때(환절기)","계절과 상관없이 항상 그렇다"]},
+   {id:"nose_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["재채기가 잦다","코가 간지럽다","코가 건조하고 코딱지가 잘 생긴다","콧물이 목뒤로 넘어가는 느낌이 있다(후비루)","눈이나 입 주변도 가렵다","해당없음"]}
  ]}},
 
 {id:"throat_main",cat:"목",title:"피곤하거나 말을 많이 하면?",type:"multi",
@@ -212,6 +235,18 @@ const Q = [
    {id:"neck_pain_freq",title:"빈도는?",type:"single",opts:["거의 매일","일주일 3~4번 정도","한달 3~4번 이하"]}
  ]}},
 
+{id:"numbness_main",cat:"저림",title:"손발이 저리거나 찌릿찌릿한 느낌이 있나요?",type:"single",
+ opts:["그렇다","아니다"],
+ sub:{"그렇다":[
+   {id:"numbness_freq",title:"빈도는?",type:"single",opts:["거의 매일","일주일 3~4번 정도","한달 3~4번 이하"]}
+ ]}},
+
+{id:"muscle_cramp",cat:"저림",title:"종아리 등에 쥐가 잘 나나요?",type:"single",
+ opts:["그렇다","아니다"]},
+
+{id:"neck_tight",cat:"저림",title:"목이나 어깨가 당기듯 뻣뻣하게 굳어있나요?",type:"single",
+ opts:["그렇다","아니다"]},
+
 {id:"breath",cat:"숨참",title:"평소 숨이 차서 숨쉬기 힘들 때가 많나요?",type:"single",
  opts:["그렇다","아니다"],
  sub:{"그렇다":[
@@ -221,6 +256,15 @@ const Q = [
 
 {id:"stamina",cat:"체력",title:"평소 체력이?",type:"single",
  opts:["매우 약한 편","약한 편","보통","좋은 편","매우 좋은 편"]},
+
+{id:"skin_main",cat:"피부",title:"평소 피부에 불편한 점이 있나요?",type:"multi",
+ opts:["건조하고 거칠거칠하다","두드러기가 잘 올라온다","특정 부위에 습진이 있다(예: 손발바닥)","여드름이나 뾰루지가 잘 난다","해당없음"],
+ sub:{"두드러기가 잘 올라온다":[
+   {id:"urticaria_trigger",title:"두드러기는 어떨 때 잘 생기나요?",type:"multi",opts:["특정 음식을 먹으면","추위나 찬바람에","스트레스 받으면","이유를 모르겠다"]}
+ ]}},
+
+{id:"eye_main",cat:"눈",title:"평소 눈이 건조하거나 충혈되는 편인가요?",type:"single",
+ opts:["그렇다","아니다"]},
 
 // ===== 감정 =====
 {id:"emo_anger",cat:"감정",title:"본래 내 성격에 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
@@ -238,7 +282,10 @@ const Q = [
 {id:"emo_anxiety",cat:"감정",title:"본래 내 성격에 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
  groups:[
    {icon:"&#128552;",bg:"#fff8f0",items:[
-     {id:"emo_uneasy",text:"마음이 편치 않고 불안해질 때가 많다."}
+     {id:"emo_uneasy",text:"마음이 편치 않고 불안해질 때가 많다."},
+     {id:"emo_height_fear",text:"높은 곳에 올라가면 불안해진다."},
+     {id:"emo_confined_fear",text:"터널처럼 막힌 공간에 있으면 불안해진다."},
+     {id:"emo_speed_fear",text:"차를 빨리 몰면 불안해진다."}
    ]},
    {icon:"&#128561;",bg:"#f0f4ff",items:[
      {id:"emo_fearful",text:"유달리 겁이 많다."},
@@ -267,7 +314,16 @@ const Q = [
    ]},
    {icon:"&#128556;",bg:"#f0f8ff",items:[
      {id:"emo_tense",text:"유달리 긴장을 많이 한다."},
-     {id:"emo_stage_fright",text:"특히 대중 발표할 때 긴장을 너무 많이 한다."}
+     {id:"emo_stage_fright",text:"특히 대중 발표할 때 긴장을 너무 많이 한다."},
+     {id:"emo_stage_sweat",text:"그런 상황에서는 손발에 땀까지 난다."}
+   ]}
+ ]},
+
+{id:"emo_trauma",cat:"감정",title:"본래 내 성격에 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
+ groups:[
+   {icon:"&#128128;",bg:"#f5f0ff",items:[
+     {id:"emo_trauma_change",text:"특정한 일을 겪은 후로 성격이나 마음 상태가 달라졌다."},
+     {id:"emo_nightmare",text:"안 좋은 꿈(악몽)을 자주 꾼다."}
    ]}
  ]},
 
