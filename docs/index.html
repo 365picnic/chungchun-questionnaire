@@ -30,9 +30,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; background: var(--bg); color: var(--ink-900); min-height: 100vh; -webkit-font-smoothing: antialiased; }
 .container { max-width: 600px; margin: 0 auto; background: var(--surface); min-height: 100vh; padding: 24px; border-radius: 0; box-shadow: var(--shadow-lg); }
-.header { text-align: center; padding: 22px 0; margin-bottom: 22px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); border-radius: var(--radius-lg); }
-.header h1 { color: #fff; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; }
-.header .sub { color: rgba(255,255,255,0.78); font-size: 12.5px; }
+.header { text-align: center; padding: 20px 0; margin-bottom: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.header h1 { color: var(--ink-900); font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; }
+.header .sub { color: var(--ink-500); font-size: 12.5px; margin-top: 6px; }
+.header .logo-img { height: 36px; width: auto; }
+.header .logo-img.sm { height: 26px; }
 .progress-bar { width: 100%; height: 6px; background: var(--line-soft); border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); border-radius: 4px; transition: width 0.4s ease; }
 .progress-text { text-align: right; font-size: 11.5px; color: var(--ink-300); margin-bottom: 18px; }
@@ -120,7 +122,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 <div class="container" id="app">
     <div id="phase-login">
         <div class="header">
-            <h1>청춘한의원</h1>
+            <img class="logo-img" src="assets/청춘한의원_로고-01.png" alt="청춘한의원">
             <div class="sub">사전문진시스템</div>
         </div>
         <div class="form-group">
@@ -169,7 +171,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     </div>
 
     <div id="phase-start" style="display:none">
-        <div class="header"><h1>청춘한의원</h1></div>
+        <div class="header"><img class="logo-img" src="assets/청춘한의원_로고-01.png" alt="청춘한의원"></div>
         <div class="start-screen">
             <h2>내 몸의 맞춤진단</h2>
             <p class="warn">마지막 페이지에서 "문진완료" 버튼을 누르셔야 문진이 완료됩니다.</p>
@@ -179,7 +181,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 
     <div id="phase-questions" style="display:none">
         <div class="header" style="padding:10px 0;">
-            <h1 style="font-size:16px;">청춘한의원</h1>
+            <img class="logo-img sm" src="assets/청춘한의원_로고-01.png" alt="청춘한의원">
         </div>
         <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
         <div class="progress-text" id="progress-text">진행률 0%</div>
@@ -191,7 +193,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     </div>
 
     <div id="phase-complete" style="display:none">
-        <div class="header"><h1>청춘한의원</h1></div>
+        <div class="header"><img class="logo-img" src="assets/청춘한의원_로고-01.png" alt="청춘한의원"></div>
         <div class="complete-page" id="complete-box">
             <div class="icon">&#10004;</div>
             <h2>문진이 완료되었습니다</h2>
