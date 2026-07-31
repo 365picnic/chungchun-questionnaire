@@ -43,6 +43,10 @@ function doPost(e) {
   if (data.action === 'ai_recommend') {
     return handleAiRecommend_(data);
   }
+  // 관리자페이지에서 문진 기록을 완전히 삭제할 때 (테스트 접수, 중복 등)
+  if (data.action === 'delete') {
+    return handleDelete_(data);
+  }
 
   var sheet = getOrCreateSheet_();
 
@@ -92,6 +96,21 @@ function handleUpdate_(data) {
   return jsonOutput_({ status: 'ok' });
 }
 
+// 관리자페이지에서 문진 기록 하나를 완전히 삭제합니다 (되돌릴 수 없음).
+// 원장님만 접근 가능하도록 ADMIN_KEY를 반드시 확인합니다.
+function handleDelete_(data) {
+  if (!data.key || data.key !== ADMIN_KEY) {
+    return jsonOutput_({ status: 'error', message: 'invalid key' });
+  }
+  var rowNum = parseInt(data.rowNum, 10);
+  var sheet = getOrCreateSheet_();
+  if (!rowNum || rowNum < 2 || rowNum > sheet.getLastRow()) {
+    return jsonOutput_({ status: 'error', message: 'invalid rowNum' });
+  }
+  sheet.deleteRow(rowNum);
+  return jsonOutput_({ status: 'ok' });
+}
+
 // 관리자페이지의 "AI 처방 분석 실행" 버튼 — Claude API를 호출해 문진/형색성정/안진 데이터를
 // PrescriptionKnowledge.gs의 임상 지식베이스와 대조시켜 후보 처방을 추천받습니다.
 // API 키는 절대 admin.html(클라이언트, 누구나 볼 수 있는 코드)에 두지 않고, 이 Apps Script
@@ -122,7 +141,6 @@ function handleAiRecommend_(data) {
   var payload = {
     model: 'claude-sonnet-5',
     max_tokens: 3000,
-    temperature: 0.3,
     system: [
       { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }
     ],
@@ -209,6 +227,14 @@ function doGet(e) {
   }).reverse(); // 최신 제출 건이 먼저 오도록
 
   return jsonOutput_(records);
+}
+
+// AI 처방 추천 기능을 처음 켤 때, 이 함수를 한 번 선택해서 "실행" 버튼을 누르면
+// "외부 서비스(Claude API) 연결" 권한을 승인하는 창이 뜹니다. 승인만 하면 되고,
+// 그 이후로는 이 함수를 다시 실행할 필요가 없습니다 (지워도 됩니다).
+function authorizeExternalRequest() {
+  var res = UrlFetchApp.fetch('https://api.anthropic.com/', { muteHttpExceptions: true });
+  Logger.log('권한 확인 완료. 응답 코드: ' + res.getResponseCode());
 }
 
 // 이미 쌓인 응답들 때문에 행이 세로로 길어져 있다면, Apps Script 편집기에서
