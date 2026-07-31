@@ -22,8 +22,9 @@
  *       추가해야 합니다 (Apps Script 편집기 좌측 파일 목록 옆 "+" > 스크립트 > 이름을
  *       PrescriptionKnowledge로 저장 후 내용 붙여넣기).
  *    2. 편집기 좌측 톱니바퀴(프로젝트 설정) > "스크립트 속성" > 속성 추가에서
- *       이름: ANTHROPIC_API_KEY, 값: 원장님의 Anthropic API 키(console.anthropic.com에서
- *       직접 발급)를 등록해야 합니다. 코드에는 절대 키를 직접 적지 않습니다.
+ *       이름: GEMINI_API_KEY, 값: 원장님의 Gemini API 키(aistudio.google.com에서
+ *       구글 계정으로 직접 발급, 보통 무료로 시작 가능)를 등록해야 합니다.
+ *       코드에는 절대 키를 직접 적지 않습니다.
  */
 
 var SHEET_NAME = '문진응답';
@@ -114,7 +115,7 @@ function handleDelete_(data) {
   return jsonOutput_({ status: 'ok' });
 }
 
-// 관리자페이지의 "AI 처방 분석 실행" 버튼 — Claude API를 호출해 문진/형색성정/안진 데이터를
+// 관리자페이지의 "AI 처방 분석 실행" 버튼 — Gemini API를 호출해 문진/형색성정/안진 데이터를
 // PrescriptionKnowledge.gs의 임상 지식베이스와 대조시켜 후보 처방을 추천받습니다.
 // API 키는 절대 admin.html(클라이언트, 누구나 볼 수 있는 코드)에 두지 않고, 이 Apps Script
 // 프로젝트의 "스크립트 속성"에만 저장합니다 (편집기 좌측 톱니바퀴 > 스크립트 속성).
@@ -123,9 +124,9 @@ function handleAiRecommend_(data) {
   if (!data.key || data.key !== ADMIN_KEY) {
     return jsonOutput_({ status: 'error', message: 'invalid key' });
   }
-  var apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) {
-    return jsonOutput_({ status: 'error', message: 'API 키가 설정되지 않았습니다. Apps Script 편집기 좌측 톱니바퀴(프로젝트 설정) > 스크립트 속성에 ANTHROPIC_API_KEY를 추가해주세요.' });
+    return jsonOutput_({ status: 'error', message: 'API 키가 설정되지 않았습니다. Apps Script 편집기 좌측 톱니바퀴(프로젝트 설정) > 스크립트 속성에 GEMINI_API_KEY를 추가해주세요.' });
   }
 
   var patientInfo = data.patientData || '';
@@ -142,37 +143,36 @@ function handleAiRecommend_(data) {
     '{"candidates":[{"name":"처방명","fit_percent":82,"matched":["일치하는 근거"],"missing":["불확실하거나 부족한 근거"],"note":"한 줄 설명"}],"additional_questions":["환자에게 추가로 확인하면 좋을 질문"]}';
 
   var payload = {
-    model: 'claude-sonnet-5',
-    max_tokens: 3000,
-    system: [
-      { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }
+    contents: [
+      { role: 'user', parts: [{ text: '환자 정보(문진 답변 / 형색성정 / 안진 / 주증상):\n' + patientInfo }] }
     ],
-    messages: [
-      { role: 'user', content: '환자 정보(문진 답변 / 형색성정 / 안진 / 주증상):\n' + patientInfo }
-    ]
+    systemInstruction: {
+      parts: [{ text: systemPrompt }]
+    },
+    generationConfig: {
+      maxOutputTokens: 3000
+    }
   };
+
+  var model = 'gemini-3.6-flash';
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + encodeURIComponent(apiKey);
 
   var res;
   try {
-    res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    res = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31'
-      },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
   } catch (err) {
-    return jsonOutput_({ status: 'error', message: 'Claude API 호출 실패: ' + err.message });
+    return jsonOutput_({ status: 'error', message: 'Gemini API 호출 실패: ' + err.message });
   }
 
   var code = res.getResponseCode();
   var bodyText = res.getContentText();
   if (code !== 200) {
-    return jsonOutput_({ status: 'error', message: 'Claude API 오류(' + code + '): ' + bodyText.slice(0, 300) });
+    return jsonOutput_({ status: 'error', message: 'Gemini API 오류(' + code + '): ' + bodyText.slice(0, 300) });
   }
 
   var parsed;
@@ -183,11 +183,11 @@ function handleAiRecommend_(data) {
   }
 
   var text = '';
-  if (parsed.content && parsed.content.length) {
-    text = parsed.content.map(function (c) { return c.text || ''; }).join('');
+  if (parsed.candidates && parsed.candidates.length && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
+    text = parsed.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('');
   }
 
-  // Claude가 지시대로 순수 JSON만 주면 좋겠지만, 앞뒤에 설명이나 ```json 코드블록을 덧붙이는
+  // Gemini가 지시대로 순수 JSON만 주면 좋겠지만, 앞뒤에 설명이나 ```json 코드블록을 덧붙이는
   // 경우에도 안전하게 파싱되도록 첫 "{"부터 마지막 "}"까지만 잘라내서 시도합니다.
   var resultJson;
   try {
@@ -237,10 +237,10 @@ function doGet(e) {
 }
 
 // AI 처방 추천 기능을 처음 켤 때, 이 함수를 한 번 선택해서 "실행" 버튼을 누르면
-// "외부 서비스(Claude API) 연결" 권한을 승인하는 창이 뜹니다. 승인만 하면 되고,
+// "외부 서비스(Gemini API) 연결" 권한을 승인하는 창이 뜹니다. 승인만 하면 되고,
 // 그 이후로는 이 함수를 다시 실행할 필요가 없습니다 (지워도 됩니다).
 function authorizeExternalRequest() {
-  var res = UrlFetchApp.fetch('https://api.anthropic.com/', { muteHttpExceptions: true });
+  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/', { muteHttpExceptions: true });
   Logger.log('권한 확인 완료. 응답 코드: ' + res.getResponseCode());
 }
 

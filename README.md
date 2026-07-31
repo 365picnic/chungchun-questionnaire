@@ -51,15 +51,15 @@ https://365picnic.github.io/chungchun-questionnaire/
 
 ### 5. (선택) AI 처방 추천 기능 켜기
 
-관리자페이지의 "AI 처방 분석" 버튼을 쓰려면 Anthropic(Claude) API 키가 필요합니다.
+관리자페이지의 "AI 처방 분석" 버튼을 쓰려면 Google Gemini API 키가 필요합니다.
 
-1. [console.anthropic.com](https://console.anthropic.com)에서 원장님 본인 계정으로 API 키를 발급받습니다.
+1. [aistudio.google.com](https://aistudio.google.com)에서 원장님 구글 계정으로 로그인 후 API 키를 발급받습니다 (보통 신용카드 등록 없이 무료로 시작할 수 있습니다. 무료 제공량 정책은 발급 화면에서 확인해주세요).
 2. 구글 시트 → **확장 프로그램 > Apps Script** → 편집기 좌측 톱니바퀴(프로젝트 설정) → **스크립트 속성** → **속성 추가**
-   - 속성: `ANTHROPIC_API_KEY`
+   - 속성: `GEMINI_API_KEY`
    - 값: 발급받은 키
 3. 저장 후, 우측 상단 **배포 > 배포 관리**에서 연필(수정) 아이콘 → "새 버전"으로 반영합니다.
 
-API 키는 이 스크립트 속성에만 저장되고 `docs/admin.html`이나 깃허브 어디에도 노출되지 않습니다. 버튼을 누를 때마다 원장님의 Anthropic 계정에 소액의 사용료가 청구됩니다.
+API 키는 이 스크립트 속성에만 저장되고 `docs/admin.html`이나 깃허브 어디에도 노출되지 않습니다.
 
 ## 참고
 
