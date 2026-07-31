@@ -72,6 +72,9 @@ function doPost(e) {
   // 전화번호가 "01012345678"처럼 숫자로만 되어 있으면 구글시트가 자동으로 숫자로 인식해서
   // 맨 앞 0을 지워버리므로, 전화번호 칸은 텍스트 서식으로 바꾼 뒤 값을 다시 정확히 넣어줍니다.
   sheet.getRange(lastRow, 3).setNumberFormat('@').setValue(data.phone || '');
+  // 생년월일도 "1969-01-07"처럼 날짜로 보이는 문자열이라 구글시트가 자동으로 실제 날짜값으로
+  // 바꿔버리는데, 이러면 시간대 계산 때문에 하루가 밀려 보이는 문제가 생깁니다. 텍스트로 고정합니다.
+  sheet.getRange(lastRow, 4).setNumberFormat('@').setValue(data.birth_date || '');
 
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok' }))
@@ -184,12 +187,16 @@ function handleAiRecommend_(data) {
     text = parsed.content.map(function (c) { return c.text || ''; }).join('');
   }
 
+  // Claude가 지시대로 순수 JSON만 주면 좋겠지만, 앞뒤에 설명이나 ```json 코드블록을 덧붙이는
+  // 경우에도 안전하게 파싱되도록 첫 "{"부터 마지막 "}"까지만 잘라내서 시도합니다.
   var resultJson;
   try {
-    var cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    var jsonStart = text.indexOf('{');
+    var jsonEnd = text.lastIndexOf('}');
+    var cleaned = (jsonStart >= 0 && jsonEnd > jsonStart) ? text.slice(jsonStart, jsonEnd + 1) : text.trim();
     resultJson = JSON.parse(cleaned);
   } catch (e) {
-    return jsonOutput_({ status: 'error', message: 'AI 응답을 해석하지 못했습니다.', raw: text.slice(0, 500) });
+    return jsonOutput_({ status: 'error', message: 'AI 응답을 해석하지 못했습니다.', raw: text.slice(0, 800) });
   }
 
   return jsonOutput_({ status: 'ok', result: resultJson });
@@ -215,7 +222,7 @@ function doGet(e) {
       submittedAt: row[0] ? new Date(row[0]).toISOString() : '',
       name: row[1],
       phone: row[2],
-      birthDate: row[3],
+      birthDate: formatDateCell_(row[3]),
       height: row[4],
       weight: row[5],
       gender: row[6],
@@ -257,6 +264,18 @@ function addDoctorNotesColumnIfMissing() {
   if (!header) {
     sheet.getRange(1, 11).setValue('원장 메모(JSON)').setFontWeight('bold');
   }
+}
+
+// 예전에 접수되어 생년월일이 이미 구글시트의 "진짜 날짜" 값으로 저장된 행들을 위한 안전장치.
+// 그런 셀은 Apps Script에서 읽으면 Date 객체로 오고, 그대로 내보내면 JSON 변환 과정에서
+// 시간대가 섞여 "1969-01-06T15:00:00.000Z"처럼 하루 밀린 문자열로 보이게 됩니다.
+// 스프레드시트 자체의 시간대 기준으로 날짜만 다시 뽑아 "1969-01-07" 형태로 돌려줍니다.
+function formatDateCell_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return v;
 }
 
 function jsonOutput_(obj) {
