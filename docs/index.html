@@ -46,6 +46,9 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .form-group label { display: block; font-weight: 700; font-size: 13.5px; margin-bottom: 8px; color: var(--ink-700); }
 .form-group input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 16px; background: var(--surface); transition: border-color 0.2s, box-shadow 0.2s; }
 .form-group input:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
+.birth-row { display: flex; gap: 8px; }
+.birth-row select { flex: 1; min-width: 0; padding: 13px 6px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 15px; background: var(--surface); color: var(--ink-900); }
+.birth-row select:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
 .gender-btns { display: flex; gap: 10px; }
 .gender-btn { flex: 1; padding: 13px; text-align: center; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 15px; cursor: pointer; transition: all 0.2s; font-weight: 600; color: var(--ink-700); }
 .gender-btn:hover { border-color: var(--brand-2); background: var(--brand-soft); }
@@ -146,7 +149,11 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         </p>
         <div class="form-group">
             <label>생년월일</label>
-            <input type="date" id="inp-birth" max="9999-12-31" min="1900-01-01">
+            <div class="birth-row">
+                <select id="inp-birth-y"><option value="">년도</option></select>
+                <select id="inp-birth-m"><option value="">월</option></select>
+                <select id="inp-birth-d"><option value="">일</option></select>
+            </div>
         </div>
         <div class="form-group">
             <label>키 (cm)</label>
@@ -229,6 +236,25 @@ const QMAP = {};
   });
 })();
 
+// 생년월일을 달력(월 단위 클릭) 대신 년/월/일 드롭다운으로 골라서, 수십 년 전으로
+// 거슬러 올라가야 하는 환자도 빠르게 선택할 수 있게 합니다.
+(function populateBirthSelects() {
+    const ySel = document.getElementById('inp-birth-y');
+    const mSel = document.getElementById('inp-birth-m');
+    const dSel = document.getElementById('inp-birth-d');
+    if (!ySel || !mSel || !dSel) return;
+    const thisYear = new Date().getFullYear();
+    for (let y = thisYear; y >= thisYear - 100; y--) {
+        ySel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}년</option>`);
+    }
+    for (let m = 1; m <= 12; m++) {
+        mSel.insertAdjacentHTML('beforeend', `<option value="${m}">${m}월</option>`);
+    }
+    for (let d = 1; d <= 31; d++) {
+        dSel.insertAdjacentHTML('beforeend', `<option value="${d}">${d}일</option>`);
+    }
+})();
+
 function goToRegister() {
     const n = document.getElementById('inp-name').value.trim();
     const p = document.getElementById('inp-phone').value.trim();
@@ -246,15 +272,18 @@ function selectGender(el, g) {
 function goToStart() {
     const name = document.getElementById('inp-name').value.trim();
     const phone = document.getElementById('inp-phone').value.trim();
-    const birth = document.getElementById('inp-birth').value;
+    const birthY = document.getElementById('inp-birth-y').value;
+    const birthM = document.getElementById('inp-birth-m').value;
+    const birthD = document.getElementById('inp-birth-d').value;
     const height = document.getElementById('inp-height').value;
     const weight = document.getElementById('inp-weight').value;
     if (!selectedGender) { alert('성별을 선택해주세요.'); return; }
     if (!document.getElementById('consent1').checked) { alert('개인정보수집 동의가 필요합니다.'); return; }
-    if (birth) {
-        const y = parseInt(birth.split('-')[0], 10);
-        if (y > 9999 || y < 1900) { alert('생년월일의 연도를 4자리로 입력해주세요.'); return; }
+    if ((birthY || birthM || birthD) && !(birthY && birthM && birthD)) {
+        alert('생년월일을 년/월/일 모두 선택해주세요.');
+        return;
     }
+    const birth = birthY ? `${birthY}-${String(birthM).padStart(2, '0')}-${String(birthD).padStart(2, '0')}` : '';
     patientInfo = {name, phone, birth_date: birth, height: parseFloat(height) || '', weight: parseFloat(weight) || '', gender: selectedGender};
     document.getElementById('phase-register').style.display = 'none';
     document.getElementById('phase-start').style.display = 'block';
