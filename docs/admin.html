@@ -162,7 +162,8 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ai-questions { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .ai-questions h4 { font-size: 12px; color: var(--ink-900); margin-bottom: 6px; }
 .ai-questions ul { padding-left: 18px; }
-.ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 4px; line-height: 1.5; }
+.ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 8px; line-height: 1.5; }
+.ai-q-reason { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
 
 .cc-card { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; }
 .cc-card:last-child { margin-bottom: 0; }
@@ -725,9 +726,9 @@ function seedDoctorNotesFromAnswers() {
   const syms = Array.isArray(answers.symptoms) ? answers.symptoms : [];
   const cc = syms.length
     ? syms.map(s => ({
-        cc: '',
+        cc: s.symptom || '',
         os: s.since || '',
-        symptom: [s.symptom, s.how ? `(${s.how})` : ''].filter(Boolean).join(' '),
+        symptom: s.how || '',
         worse: '',
         better: ''
       }))
@@ -915,7 +916,13 @@ function renderAiResult(result) {
   });
   h += '</div>';
   if (questions.length) {
-    h += `<div class="ai-questions"><h4>환자에게 추가로 확인하면 좋은 질문</h4><ul>${questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>`;
+    const qLines = questions.map(q => {
+      // q가 문자열(예전 형식)이면 질문만, {question, reason} 객체면 이유도 함께 표시합니다.
+      const questionText = typeof q === 'string' ? q : (q.question || '');
+      const reasonText = typeof q === 'object' && q.reason ? q.reason : '';
+      return `<li>${esc(questionText)}${reasonText ? `<div class="ai-q-reason">${esc(reasonText)}</div>` : ''}</li>`;
+    }).join('');
+    h += `<div class="ai-questions"><h4>환자에게 추가로 확인하면 좋은 질문</h4><ul>${qLines}</ul></div>`;
   }
   return h;
 }
