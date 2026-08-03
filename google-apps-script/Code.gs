@@ -62,12 +62,13 @@ function doPost(e) {
     data.summary || '',
     data.symptoms || '',
     data.raw || '',
-    '' // 원장 메모(JSON) - 접수 시점에는 비어있고, 진료 중 관리자페이지에서 채워집니다.
+    '', // 원장 메모(JSON) - 접수 시점에는 비어있고, 진료 중 관리자페이지에서 채워집니다.
+    ''  // AI 추천 결과(JSON) - AI 처방 분석을 실행하면 채워집니다.
   ]);
 
   // 문진 요약처럼 줄바꿈이 많은 칸 때문에 행이 세로로 길게 늘어나지 않도록 설정
   var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, 11).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.getRange(lastRow, 1, 1, 12).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   sheet.setRowHeight(lastRow, 21);
 
   // 전화번호가 "01012345678"처럼 숫자로만 되어 있으면 구글시트가 자동으로 숫자로 인식해서
@@ -120,6 +121,8 @@ function handleDelete_(data) {
 // API 키는 절대 admin.html(클라이언트, 누구나 볼 수 있는 코드)에 두지 않고, 이 Apps Script
 // 프로젝트의 "스크립트 속성"에만 저장합니다 (편집기 좌측 톱니바퀴 > 스크립트 속성).
 // 이 함수가 내리는 결과는 진단이 아니라 원장님의 검토를 돕는 참고자료일 뿐입니다.
+// 결과는 rowNum이 함께 오면 해당 환자 행의 "AI 추천 결과(JSON)" 칸에도 저장해서,
+// 나중에 그 환자를 다시 열었을 때도 그대로 보이게 합니다.
 function handleAiRecommend_(data) {
   if (!data.key || data.key !== ADMIN_KEY) {
     return jsonOutput_({ status: 'error', message: 'invalid key' });
@@ -205,6 +208,14 @@ function handleAiRecommend_(data) {
     return jsonOutput_({ status: 'error', message: 'AI 응답을 해석하지 못했습니다.', raw: text.slice(0, 800) });
   }
 
+  var rowNum = parseInt(data.rowNum, 10);
+  if (rowNum) {
+    var sheet = getOrCreateSheet_();
+    if (rowNum >= 2 && rowNum <= sheet.getLastRow()) {
+      sheet.getRange(rowNum, 12).setValue(JSON.stringify(resultJson));
+    }
+  }
+
   return jsonOutput_({ status: 'ok', result: resultJson });
 }
 
@@ -221,7 +232,7 @@ function doGet(e) {
   if (lastRow < 2) {
     return jsonOutput_([]);
   }
-  var values = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
   var records = values.map(function (row, i) {
     return {
       rowNum: i + 2,
@@ -235,7 +246,8 @@ function doGet(e) {
       summary: row[7],
       symptoms: row[8],
       raw: row[9],
-      doctorNotes: row[10]
+      doctorNotes: row[10],
+      aiResult: row[11]
     };
   }).reverse(); // 최신 제출 건이 먼저 오도록
 
@@ -256,7 +268,7 @@ function fixExistingRowHeights() {
   var sheet = getOrCreateSheet_();
   var lastRow = sheet.getLastRow();
   if (lastRow < 1) return;
-  sheet.getRange(1, 1, lastRow, 11).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.getRange(1, 1, lastRow, 12).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   for (var r = 1; r <= lastRow; r++) {
     sheet.setRowHeight(r, 21);
   }
@@ -299,10 +311,20 @@ function getOrCreateSheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow([
       '제출일시', '이름', '전화번호', '생년월일', '키(cm)', '몸무게(kg)', '성별',
-      '문진 요약', '증상(직접입력)', '원본데이터(JSON, 백업용)', '원장 메모(JSON)'
+      '문진 요약', '증상(직접입력)', '원본데이터(JSON, 백업용)', '원장 메모(JSON)', 'AI 추천 결과(JSON)'
     ]);
     sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
   }
   return sheet;
+}
+
+// 이 코드를 처음 붙여넣기 전부터 시트에 응답이 쌓여 있었다면, L열(AI 추천 결과) 헤더가
+// 없을 수 있습니다. Apps Script 편집기에서 이 함수를 한 번 "실행"하면 헤더만 추가됩니다.
+function addAiResultColumnIfMissing() {
+  var sheet = getOrCreateSheet_();
+  var header = sheet.getRange(1, 12).getValue();
+  if (!header) {
+    sheet.getRange(1, 12).setValue('AI 추천 결과(JSON)').setFontWeight('bold');
+  }
 }

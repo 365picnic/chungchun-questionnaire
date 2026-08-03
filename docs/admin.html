@@ -294,6 +294,11 @@ function formatPhone(v) {
 }
 function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
 
+// 비밀번호가 틀렸을 때 Code.gs의 doGet이 돌려주는 안내 문구와 정확히 같은 문자열입니다.
+// 이 문구가 아닌 다른 응답(빈 값, 에러 페이지 등)은 비밀번호 문제가 아니라 구글 서버 쪽의
+// 일시적인 오류(과부하, 요청 제한 등)일 가능성이 높으므로 다른 안내 메시지를 보여줍니다.
+const WRONG_KEY_MESSAGE = '청춘한의원 문진 접수 서버가 정상 동작 중입니다.';
+
 async function tryLoadWithKey() {
   document.getElementById('lock-err').textContent = '';
   try {
@@ -302,7 +307,10 @@ async function tryLoadWithKey() {
     let data;
     try { data = JSON.parse(text); } catch (e) { data = null; }
     if (!Array.isArray(data)) {
-      document.getElementById('lock-err').textContent = '비밀번호가 올바르지 않습니다.';
+      const msg = text.trim() === WRONG_KEY_MESSAGE
+        ? '비밀번호가 올바르지 않습니다.'
+        : '서버 응답에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
+      document.getElementById('lock-err').textContent = msg;
       sessionStorage.removeItem('admin_key');
       return;
     }
@@ -887,7 +895,7 @@ function runAiRecommend(rowNum) {
 
   const r = records[selectedIdx];
   const patientData = buildPatientDataForAi(r);
-  const payload = { action: 'ai_recommend', key: adminKey, patientData: patientData };
+  const payload = { action: 'ai_recommend', key: adminKey, rowNum: rowNum, patientData: patientData };
 
   fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
     .then(res => res.json())
@@ -900,6 +908,7 @@ function runAiRecommend(rowNum) {
         return;
       }
       lastAiResult = data.result;
+      if (r) r.aiResult = JSON.stringify(data.result); // 서버(구글시트)에도 이미 저장됨 - 화면에서도 바로 반영
       if (status) status.textContent = '';
       if (resultEl) resultEl.innerHTML = renderAiResult(data.result);
     })
@@ -971,10 +980,10 @@ function renderSidePanel(rowNum) {
   </div>`;
   h += `<div class="side-box">
     <div class="side-box-hdr"><h3>✨ AI 처방 추천</h3></div>
-    <button class="ai-run-btn" id="ai-run-btn" onclick="runAiRecommend(${rowNum})">🤖 AI 처방 분석 실행</button>
+    <button class="ai-run-btn" id="ai-run-btn" onclick="runAiRecommend(${rowNum})">🤖 ${lastAiResult ? 'AI 처방 분석 다시 실행' : 'AI 처방 분석 실행'}</button>
     <div class="ai-note">문진·형색성정·안진 데이터를 바탕으로 후보를 제시합니다. 최종 처방은 원장님이 직접 판단해주세요.</div>
     <div class="ai-status" id="ai-status"></div>
-    <div id="ai-result"></div>
+    <div id="ai-result">${lastAiResult ? renderAiResult(lastAiResult) : ''}</div>
   </div>`;
   h += `<div class="side-box">
     <div class="side-box-hdr"><h3>처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>
@@ -1009,6 +1018,7 @@ function renderDetail(i) {
       const legacy = localStorage.getItem('tendency_' + r.rowNum);
       if (legacy !== null) doctorNotes.tendency = parseInt(legacy, 10);
     }
+    try { lastAiResult = r.aiResult ? JSON.parse(r.aiResult) : null; } catch (e) { lastAiResult = null; }
     editingRowNum = r.rowNum;
   }
 
