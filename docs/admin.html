@@ -83,6 +83,10 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .patient-card { border-top: 4px solid var(--c-violet); }
 .patient-card .field { font-size: 12px; color: var(--ink-500); }
 .patient-card .field b { display: block; font-size: 14px; color: var(--ink-900); font-weight: 700; margin-top: 2px; }
+.patient-card .field .vital-hint { font-size: 10px; color: var(--c-orange); font-weight: 600; }
+.patient-card .field b.vital-edit { display: flex; align-items: center; gap: 4px; }
+.vital-input { width: 56px; border: 1.5px solid var(--c-orange-soft); background: var(--c-orange-soft); border-radius: 6px; padding: 3px 6px; font-size: 13px; font-weight: 700; color: var(--ink-900); font-family: inherit; }
+.vital-input:focus { outline: none; border-color: var(--c-orange); background: var(--surface); }
 .patient-card .copy-btn { margin-left: auto; background: var(--brand-soft); color: var(--brand-1); border: none; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .15s; }
 .patient-card .copy-btn:hover { background: #e2e5f9; }
 
@@ -279,6 +283,11 @@ let editingRowNum = null;
 // true일 때만 통합 저장 버튼이 raw/summary도 함께 저장합니다.
 let hasEditableAnswers = false;
 
+// 환자가 문진에서 적어낸 키/몸무게를 원장님이 직접 고칠 수 있게 하는 값.
+// (일부러 체중을 속여 적는 환자가 있어, 진료 중 실측치로 바로 잡을 수 있어야 함)
+// editingRowNum이 바뀔 때만 원본 값으로 초기화합니다.
+let editedVitals = { height: '', weight: '' };
+
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
 let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
@@ -468,6 +477,20 @@ function renderBMI(bmi) {
       <div class="bmi-val">${c.range}</div>
     </div>`;
   }).join('');
+}
+
+// 키/몸무게 입력칸이 바뀔 때마다 호출 - BMI만 다시 그리고(#bmi-body),
+// 값 자체는 저장 버튼을 눌러야 구글시트에 반영됩니다.
+function updateVital(field, val) {
+  editedVitals[field] = val;
+  const el = document.getElementById('bmi-body');
+  if (el) el.innerHTML = renderBMIBody();
+}
+
+function renderBMIBody() {
+  const bmi = calcBMI(editedVitals.height, editedVitals.weight);
+  return `<div class="bmi-bar">${renderBMI(bmi)}</div>` +
+    (bmi ? `<div class="bmi-note">BMI ${bmi.toFixed(1)}</div>` : `<div class="bmi-note">키/몸무게 정보가 없어 계산할 수 없습니다.</div>`);
 }
 
 // ===== 형색성정: 성향/면색/붉은기/기타/안진 (모두 원장님이 진료 중 직접 판단해 표시, 자동 아님) =====
@@ -673,7 +696,14 @@ function setSaveStatus(text, cls) {
 
 function saveAll(rowNum) {
   setSaveStatus('저장 중...', '');
-  const payload = { action: 'update', key: adminKey, rowNum: rowNum, notes: JSON.stringify(doctorNotes) };
+  const payload = {
+    action: 'update',
+    key: adminKey,
+    rowNum: rowNum,
+    notes: JSON.stringify(doctorNotes),
+    height: editedVitals.height,
+    weight: editedVitals.weight
+  };
   if (hasEditableAnswers) {
     payload.raw = JSON.stringify(answers);
     payload.summary = buildSummary();
@@ -683,6 +713,8 @@ function saveAll(rowNum) {
       const r = records[selectedIdx];
       if (r) {
         r.doctorNotes = payload.notes;
+        r.height = payload.height;
+        r.weight = payload.weight;
         if (hasEditableAnswers) { r.raw = payload.raw; r.summary = payload.summary; }
       }
       setSaveStatus('저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')', 'ok');
@@ -800,10 +832,11 @@ function scaleLabel(idx, left, right) {
 // 현재 열려있는 환자의 문진 답변 / 형색성정 / 안진 / 주증상 / 진료메모를 AI에게 보낼
 // 하나의 텍스트로 정리합니다. answers/selectedGender는 이미 이 환자 것으로 채워져 있습니다.
 function buildPatientDataForAi(r) {
-  const bmi = calcBMI(r.height, r.weight);
+  // 원장님이 키/몸무게를 고친 경우, AI 추천에도 원본이 아니라 고친 값을 넘깁니다.
+  const bmi = calcBMI(editedVitals.height, editedVitals.weight);
   const lines = [];
   lines.push(`이름: ${r.name || '-'} / 성별: ${r.gender || '-'} / 생년월일: ${r.birthDate || '-'}`);
-  lines.push(`키/몸무게: ${r.height || '-'}cm / ${r.weight || '-'}kg (BMI ${bmi ? bmi.toFixed(1) : '-'})`);
+  lines.push(`키/몸무게: ${editedVitals.height || '-'}cm / ${editedVitals.weight || '-'}kg (BMI ${bmi ? bmi.toFixed(1) : '-'})`);
   lines.push('');
   // 환자가 스스로 표현한 주소증을 맨 앞에 두어, 체크박스 응답보다 먼저·우선 고려하도록 합니다.
   lines.push('[환자가 직접 호소한 주증상 - 최우선으로 고려]');
@@ -997,6 +1030,7 @@ function renderDetail(i) {
       if (legacy !== null) doctorNotes.tendency = parseInt(legacy, 10);
     }
     try { lastAiResult = r.aiResult ? JSON.parse(r.aiResult) : null; } catch (e) { lastAiResult = null; }
+    editedVitals = { height: r.height || '', weight: r.weight || '' };
     editingRowNum = r.rowNum;
   }
   hasEditableAnswers = !!editableAnswers;
@@ -1006,16 +1040,17 @@ function renderDetail(i) {
     <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}</div>
     <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
-    <div class="field">키 / 몸무게<b>${esc(r.height || '-')}cm / ${esc(r.weight || '-')}kg</b></div>
+    <div class="field">키 / 몸무게 <span class="vital-hint">(수정 가능)</span>
+      <b class="vital-edit"><input type="number" step="0.1" class="vital-input" id="vital-height" value="${esc(editedVitals.height)}" oninput="updateVital('height', this.value)"> cm /
+      <input type="number" step="0.1" class="vital-input" id="vital-weight" value="${esc(editedVitals.weight)}" oninput="updateVital('weight', this.value)"> kg</b>
+    </div>
     <div class="field">제출일시<b>${r.submittedAt ? new Date(r.submittedAt).toLocaleString('ko-KR') : '-'}</b></div>
     <button class="copy-btn" id="copy-summary-btn" onclick="copyPatientSummary()">📋 증상복사</button>
   </div>`;
 
-  const bmi = calcBMI(r.height, r.weight);
   h += `<div class="bmi-section">
     <h3>체형 분석 (BMI 자동 계산)</h3>
-    <div class="bmi-bar">${renderBMI(bmi)}</div>
-    ${bmi ? `<div class="bmi-note">BMI ${bmi.toFixed(1)}</div>` : `<div class="bmi-note">키/몸무게 정보가 없어 계산할 수 없습니다.</div>`}
+    <div id="bmi-body">${renderBMIBody()}</div>
   </div>`;
 
   h += renderHSS();

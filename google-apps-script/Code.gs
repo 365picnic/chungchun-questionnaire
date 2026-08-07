@@ -98,6 +98,9 @@ function handleUpdate_(data) {
   if (data.summary !== undefined) sheet.getRange(rowNum, 8).setValue(data.summary || '');  // 문진 요약
   if (data.raw !== undefined) sheet.getRange(rowNum, 10).setValue(data.raw || '');         // 원본데이터(JSON)
   if (data.notes !== undefined) sheet.getRange(rowNum, 11).setValue(data.notes || '');     // 원장 메모(JSON)
+  // 키/몸무게 - 환자가 문진에 잘못(또는 속여) 적은 값을 원장님이 실측치로 고칠 수 있게 함
+  if (data.height !== undefined) sheet.getRange(rowNum, 5).setValue(data.height === '' ? '' : Number(data.height));
+  if (data.weight !== undefined) sheet.getRange(rowNum, 6).setValue(data.weight === '' ? '' : Number(data.weight));
   return jsonOutput_({ status: 'ok' });
 }
 
