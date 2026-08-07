@@ -28,6 +28,7 @@
  */
 
 var SHEET_NAME = '문진응답';
+var SHEET_NAME_DIET = '다이어트문진응답';
 
 // 관리 페이지(admin.html)에서 답변 목록을 조회할 때 쓰는 비밀번호 역할의 값.
 // 필요하면 원하는 문자열로 바꾸고 "새 버전으로 배포"를 다시 하면 됩니다.
@@ -47,6 +48,10 @@ function doPost(e) {
   // 관리자페이지에서 문진 기록을 완전히 삭제할 때 (테스트 접수, 중복 등)
   if (data.action === 'delete') {
     return handleDelete_(data);
+  }
+  // 다이어트 문진(diet.html)에서 접수된 신규 제출 - 별도 시트에 저장
+  if (data.formType === 'diet') {
+    return handleDietSubmit_(data);
   }
 
   var sheet = getOrCreateSheet_();
@@ -83,17 +88,61 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// 다이어트 문진(diet.html)의 신규 제출을 별도 시트("다이어트문진응답")에 저장합니다.
+// 한약 문진과 열 구성이 달라(주소/희망개월수/감량목표 등) 별도 함수로 분리했습니다.
+function handleDietSubmit_(data) {
+  var sheet = getOrCreateDietSheet_();
+
+  sheet.appendRow([
+    new Date(),
+    data.name || '',
+    data.phone || '',
+    data.birth_date || '',
+    data.gender || '',
+    data.height || '',
+    data.weight || '',
+    data.goal || '',
+    data.plan || '',
+    data.address || '',
+    data.summary || '',
+    data.raw || '',
+    '' // 원장 메모(JSON) - 접수 시점에는 비어있고, 진료 중 관리자페이지에서 채워집니다.
+  ]);
+
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 1, 1, 13).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  sheet.setRowHeight(lastRow, 21);
+
+  // 전화번호/생년월일이 숫자·날짜로 자동 변환되어 앞자리 0이 사라지거나 하루 밀리는 문제를
+  // 막기 위해 텍스트 서식으로 고정합니다. (한약 문진 doPost와 동일한 이유)
+  sheet.getRange(lastRow, 3).setNumberFormat('@').setValue(data.phone || '');
+  sheet.getRange(lastRow, 4).setNumberFormat('@').setValue(data.birth_date || '');
+
+  return jsonOutput_({ status: 'ok' });
+}
+
 // 관리자페이지(admin.html)에서 "저장" 버튼을 눌렀을 때 실행되는 부분.
 // 원장님만 접근 가능하도록 ADMIN_KEY 를 반드시 확인한 뒤, 요청에 실제로 담겨 온
 // 항목만 해당 환자의 행 번호(rowNum)에 덮어씁니다. (문진 답변 수정 / 주증상·메모 저장 공용)
+// data.formType이 'diet'면 다이어트문진응답 시트를, 아니면(기본값) 한약 문진 시트를 사용합니다.
 function handleUpdate_(data) {
   if (!data.key || data.key !== ADMIN_KEY) {
     return jsonOutput_({ status: 'error', message: 'invalid key' });
   }
   var rowNum = parseInt(data.rowNum, 10);
-  var sheet = getOrCreateSheet_();
+  var isDiet = data.formType === 'diet';
+  var sheet = isDiet ? getOrCreateDietSheet_() : getOrCreateSheet_();
   if (!rowNum || rowNum < 2 || rowNum > sheet.getLastRow()) {
     return jsonOutput_({ status: 'error', message: 'invalid rowNum' });
+  }
+  if (isDiet) {
+    if (data.summary !== undefined) sheet.getRange(rowNum, 11).setValue(data.summary || '');  // 문진 요약
+    if (data.raw !== undefined) sheet.getRange(rowNum, 12).setValue(data.raw || '');           // 원본데이터(JSON)
+    if (data.notes !== undefined) sheet.getRange(rowNum, 13).setValue(data.notes || '');       // 원장 메모(JSON)
+    if (data.height !== undefined) sheet.getRange(rowNum, 6).setValue(data.height === '' ? '' : Number(data.height));
+    if (data.weight !== undefined) sheet.getRange(rowNum, 7).setValue(data.weight === '' ? '' : Number(data.weight));
+    if (data.goal !== undefined) sheet.getRange(rowNum, 8).setValue(data.goal === '' ? '' : Number(data.goal));
+    return jsonOutput_({ status: 'ok' });
   }
   if (data.summary !== undefined) sheet.getRange(rowNum, 8).setValue(data.summary || '');  // 문진 요약
   if (data.raw !== undefined) sheet.getRange(rowNum, 10).setValue(data.raw || '');         // 원본데이터(JSON)
@@ -111,7 +160,7 @@ function handleDelete_(data) {
     return jsonOutput_({ status: 'error', message: 'invalid key' });
   }
   var rowNum = parseInt(data.rowNum, 10);
-  var sheet = getOrCreateSheet_();
+  var sheet = data.formType === 'diet' ? getOrCreateDietSheet_() : getOrCreateSheet_();
   if (!rowNum || rowNum < 2 || rowNum > sheet.getLastRow()) {
     return jsonOutput_({ status: 'error', message: 'invalid rowNum' });
   }
@@ -230,6 +279,10 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.TEXT);
   }
 
+  if (e.parameter.type === 'diet') {
+    return doGetDiet_();
+  }
+
   var sheet = getOrCreateSheet_();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) {
@@ -254,6 +307,35 @@ function doGet(e) {
     };
   }).reverse(); // 최신 제출 건이 먼저 오도록
 
+  return jsonOutput_(records);
+}
+
+// 관리자페이지의 "다이어트문진" 탭에서 목록을 불러올 때 사용합니다 (doGet에서 type=diet일 때 호출).
+function doGetDiet_() {
+  var sheet = getOrCreateDietSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return jsonOutput_([]);
+  }
+  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var records = values.map(function (row, i) {
+    return {
+      rowNum: i + 2,
+      submittedAt: row[0] ? new Date(row[0]).toISOString() : '',
+      name: row[1],
+      phone: row[2],
+      birthDate: formatDateCell_(row[3]),
+      gender: row[4],
+      height: row[5],
+      weight: row[6],
+      goal: row[7],
+      plan: row[8],
+      address: row[9],
+      summary: row[10],
+      raw: row[11],
+      doctorNotes: row[12]
+    };
+  }).reverse();
   return jsonOutput_(records);
 }
 
@@ -318,6 +400,24 @@ function getOrCreateSheet_() {
     ]);
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+  }
+  return sheet;
+}
+
+// 다이어트 문진(diet.html) 응답을 저장하는 시트. 한약 문진과 열 구성이 달라 별도 시트를 씁니다.
+function getOrCreateDietSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME_DIET);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME_DIET);
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      '제출일시', '이름', '전화번호', '생년월일', '성별', '키(cm)', '몸무게(kg)', '감량목표(kg)',
+      '희망개월수', '주소', '문진 요약', '원본데이터(JSON, 백업용)', '원장 메모(JSON)'
+    ]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, 13).setFontWeight('bold');
   }
   return sheet;
 }

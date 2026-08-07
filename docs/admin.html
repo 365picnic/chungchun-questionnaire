@@ -55,8 +55,13 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .layout { display: flex; height: calc(100vh - 52px); }
 .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
 .sidebar-hdr { padding: 12px; border-bottom: 1px solid var(--line-soft); }
-.sidebar-hdr input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; }
+.sidebar-hdr input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
 .sidebar-hdr input:focus { outline: none; border-color: var(--brand-2); }
+.form-tabs { display: flex; gap: 8px; }
+.form-tab { flex: 1; padding: 9px 4px; text-align: center; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; border: 1.5px solid var(--line); color: var(--ink-500); background: var(--surface); transition: all .15s; }
+.form-tab:hover { border-color: var(--brand-2); }
+.form-tab.herbal.active { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border-color: transparent; box-shadow: var(--shadow-sm); }
+.form-tab.diet.active { background: linear-gradient(135deg, var(--c-orange), #f59e0b); color: #fff; border-color: transparent; box-shadow: var(--shadow-sm); }
 .p-list { flex: 1; overflow-y: auto; }
 .p-item { padding: 12px 16px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background .1s; display: flex; gap: 10px; align-items: flex-start; }
 .p-item:hover { background: #f7f8fd; }
@@ -245,12 +250,16 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     <div class="brand"><img class="brand-logo" src="assets/청춘한의원_로고-01.png" alt="청춘한의원"> <span>문진 관리</span></div>
     <div class="right">
       <span id="last-updated"></span>
-      <button onclick="loadData()">새로고침</button>
+      <button onclick="refreshAll()">새로고침</button>
     </div>
   </div>
   <div class="layout">
     <div class="sidebar">
       <div class="sidebar-hdr">
+        <div class="form-tabs">
+          <div class="form-tab herbal active" id="tab-herbal" onclick="switchForm('herbal')">🌿 한약문진</div>
+          <div class="form-tab diet" id="tab-diet" onclick="switchForm('diet')">🥗 다이어트문진</div>
+        </div>
         <input type="text" id="search" placeholder="이름 또는 전화번호 검색" oninput="renderList()">
       </div>
       <div class="p-list" id="p-list"></div>
@@ -262,6 +271,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 </div>
 
 <script src="questions.js"></script>
+<script src="questions-diet.js"></script>
 <script>
 // docs/index.html 의 GAS_URL 과 동일한 주소를 사용합니다.
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
@@ -273,6 +283,13 @@ const adminKey = '3133';
 let records = [];
 let selectedIdx = null;
 
+// 한약문진 / 다이어트문진 탭 전환용. 두 탭의 목록·선택 상태는 서로 독립적으로 유지합니다.
+let activeForm = 'herbal'; // 'herbal' | 'diet'
+let dietRecords = [];
+let selectedDietIdx = null;
+let dietNotes = { memo: '' };
+let editingDietRowNum = null;
+
 // 문진 답변 수정용 (questions.js 의 Q/visibleQ/buildSummary 가 참조하는 전역 변수).
 // 환자를 새로 선택했을 때만 r.raw로 채우고, 그 이후 같은 환자를 다시 그릴 때는
 // (원장님이 클릭해서 고친 내용이 사라지지 않도록) 이미 채워진 값을 그대로 씁니다.
@@ -283,10 +300,10 @@ let editingRowNum = null;
 // true일 때만 통합 저장 버튼이 raw/summary도 함께 저장합니다.
 let hasEditableAnswers = false;
 
-// 환자가 문진에서 적어낸 키/몸무게를 원장님이 직접 고칠 수 있게 하는 값.
+// 환자가 문진에서 적어낸 키/몸무게(다이어트 탭은 감량목표도)를 원장님이 직접 고칠 수 있게 하는 값.
 // (일부러 체중을 속여 적는 환자가 있어, 진료 중 실측치로 바로 잡을 수 있어야 함)
-// editingRowNum이 바뀔 때만 원본 값으로 초기화합니다.
-let editedVitals = { height: '', weight: '' };
+// editingRowNum(다이어트는 editingDietRowNum)이 바뀔 때만 원본 값으로 초기화합니다.
+let editedVitals = { height: '', weight: '', goal: '' };
 
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
@@ -296,6 +313,7 @@ let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek
 let lastAiResult = null;
 
 loadData();
+loadDietData();
 
 // 구글시트가 "01090261075" 같은 전화번호를 숫자로 자동 인식해서 맨 앞 0이 사라지는 경우가 있어
 // (이때 r.phone은 문자열이 아니라 숫자가 되어 .includes() 검색도 깨집니다), 불러온 직후 복구합니다.
@@ -314,6 +332,36 @@ function genderClass(g) {
   return '';
 }
 
+function refreshAll() {
+  loadData();
+  loadDietData();
+}
+
+// 한약문진/다이어트문진 탭 전환. 두 탭의 목록/선택 상태는 서로 건드리지 않고 그대로 유지합니다.
+function switchForm(form) {
+  activeForm = form;
+  document.getElementById('tab-herbal').classList.toggle('active', form === 'herbal');
+  document.getElementById('tab-diet').classList.toggle('active', form === 'diet');
+  document.getElementById('search').value = '';
+  renderList();
+  document.getElementById('detail').innerHTML = '<div class="detail-empty">왼쪽 목록에서 환자를 선택해주세요.</div>';
+}
+
+async function loadDietData() {
+  try {
+    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey) + '&type=diet');
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      dietRecords = data.map(normalizeRecord);
+      if (activeForm === 'diet') {
+        renderList();
+        if (selectedDietIdx !== null) renderDietDetail(selectedDietIdx);
+      }
+      updateTimestamp();
+    }
+  } catch (e) { /* 조용히 실패 - 다음 새로고침에서 재시도 */ }
+}
+
 async function loadData() {
   const statusEl = document.getElementById('last-updated');
   if (statusEl && records.length === 0) statusEl.textContent = '불러오는 중...';
@@ -322,8 +370,10 @@ async function loadData() {
     const data = await res.json();
     if (Array.isArray(data)) {
       records = data.map(normalizeRecord);
-      renderList();
-      if (selectedIdx !== null) renderDetail(selectedIdx);
+      if (activeForm === 'herbal') {
+        renderList();
+        if (selectedIdx !== null) renderDetail(selectedIdx);
+      }
       updateTimestamp();
     } else if (statusEl) {
       statusEl.textContent = '서버 응답에 문제가 있습니다.';
@@ -342,23 +392,27 @@ function updateTimestamp() {
 function renderList() {
   const kw = (document.getElementById('search').value || '').trim();
   const list = document.getElementById('p-list');
-  const filtered = records
+  const isDiet = activeForm === 'diet';
+  const src = isDiet ? dietRecords : records;
+  const curIdx = isDiet ? selectedDietIdx : selectedIdx;
+  const openFn = isDiet ? 'renderDietDetail' : 'renderDetail';
+  const filtered = src
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => !kw || (r.name || '').includes(kw) || (r.phone || '').includes(kw));
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty-list">아직 접수된 문진이 없습니다.</div>';
+    list.innerHTML = `<div class="empty-list">아직 접수된 ${isDiet ? '다이어트' : '한약'} 문진이 없습니다.</div>`;
     return;
   }
 
-  // records는 최신 제출이 맨 앞(index 0)에 오도록 정렬되어 있으므로,
+  // src는 최신 제출이 맨 앞(index 0)에 오도록 정렬되어 있으므로,
   // 가장 오래된 접수가 1번이 되도록 뒤에서부터 번호를 매깁니다 (목록에 보이는 순서 자체는 최신순 그대로 유지).
   list.innerHTML = filtered.map(({ r, i }) => {
     const dt = r.submittedAt ? new Date(r.submittedAt) : null;
     const dtText = dt ? dt.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     const genderTag = r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${r.gender}</span>` : '';
-    const num = records.length - i;
-    return `<div class="p-item${i === selectedIdx ? ' active' : ''}" onclick="renderDetail(${i})">
+    const num = src.length - i;
+    return `<div class="p-item${i === curIdx ? ' active' : ''}" onclick="${openFn}(${i})">
       <span class="p-num">${num}</span>
       <div class="p-body">
         <div class="nm">${esc(r.name || '(이름없음)')} ${genderTag}</div>
@@ -375,7 +429,9 @@ function renderList() {
 function deleteRecord(rowNum, name) {
   if (!confirm(`${name}님의 문진 기록을 정말 삭제하시겠습니까?\n\n구글시트에서 완전히 삭제되며, 되돌릴 수 없습니다.`)) return;
 
+  const isDiet = activeForm === 'diet';
   const payload = { action: 'delete', key: adminKey, rowNum: rowNum };
+  if (isDiet) payload.formType = 'diet';
   fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
     .then(res => res.json())
     .then(data => {
@@ -384,6 +440,14 @@ function deleteRecord(rowNum, name) {
         return;
       }
       // rowNum이 밀려서 다른 환자들의 행 번호도 바뀌므로, 서버에서 다시 불러와 목록을 맞춥니다.
+      if (isDiet) {
+        if (selectedDietIdx !== null && dietRecords[selectedDietIdx] && dietRecords[selectedDietIdx].rowNum === rowNum) {
+          selectedDietIdx = null;
+          document.getElementById('detail').innerHTML = '<div class="detail-empty">왼쪽 목록에서 환자를 선택해주세요.</div>';
+        }
+        loadDietData();
+        return;
+      }
       if (selectedIdx !== null && records[selectedIdx] && records[selectedIdx].rowNum === rowNum) {
         selectedIdx = null;
         document.getElementById('detail').innerHTML = '<div class="detail-empty">왼쪽 목록에서 환자를 선택해주세요.</div>';
@@ -1093,6 +1157,103 @@ function renderDetail(i) {
 
   document.getElementById('detail').innerHTML =
     `<div class="two-col"><div class="col-main">${h}</div><div class="col-side">${sideH}</div></div>`;
+}
+
+// ===== 다이어트문진 상세 (한약 문진과 질문/항목이 완전히 달라 별도 렌더링) =====
+// 다이어트 문진 요약(buildDietSummary)도 한약 문진과 같은 "[카테고리] 질문: 답" 형식이라
+// parseSummary()를 그대로 재사용해 카테고리별 카드로 보여줍니다.
+function renderDietDetail(i) {
+  selectedDietIdx = i;
+  renderList();
+  const r = dietRecords[i];
+
+  // 환자를 새로 열었을 때만 원본 값으로 초기화합니다 (상담메모 작성 중 내용이 지워지지 않도록).
+  if (editingDietRowNum !== r.rowNum) {
+    let parsedNotes = null;
+    try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
+    dietNotes = (parsedNotes && typeof parsedNotes === 'object') ? Object.assign({ memo: '' }, parsedNotes) : { memo: '' };
+    editedVitals = { height: r.height || '', weight: r.weight || '', goal: r.goal || '' };
+    editingDietRowNum = r.rowNum;
+  }
+
+  let h = '';
+  h += `<div class="patient-card">
+    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}</div>
+    <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
+    <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
+    <div class="field">희망개월수<b>${esc(r.plan || '-')}</b></div>
+    <div class="field">주소<b>${esc(r.address || '-')}</b></div>
+    <div class="field">키 / 몸무게 / 감량목표 <span class="vital-hint">(수정 가능)</span>
+      <b class="vital-edit"><input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.height)}" oninput="updateVital('height', this.value)"> cm /
+      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.weight)}" oninput="updateVital('weight', this.value)"> kg → 목표
+      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.goal)}" oninput="updateVital('goal', this.value)"> kg</b>
+    </div>
+    <div class="field">제출일시<b>${r.submittedAt ? new Date(r.submittedAt).toLocaleString('ko-KR') : '-'}</b></div>
+  </div>`;
+
+  h += `<div class="bmi-section">
+    <h3>체형 분석 (BMI 자동 계산)</h3>
+    <div id="bmi-body">${renderBMIBody()}</div>
+  </div>`;
+
+  const cats = moveCatToFront(parseSummary(r.summary), '체크리스트');
+  h += `<div class="cat-grid">`;
+  cats.forEach(cat => {
+    h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
+    cat.rows.forEach(row => {
+      h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
+    });
+    h += `</div></div>`;
+  });
+  h += `</div>`;
+
+  h += `<div class="raw-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='block' ? 'none' : 'block'">원본 데이터 보기(백업용)</div>`;
+  h += `<div class="raw-box">${esc(r.raw || '')}</div>`;
+
+  let side = '';
+  side += `<div class="save-bar top">
+    <button onclick="saveDietAll(${r.rowNum})">💾 저장</button>
+    <span class="save-status" id="save-status"></span>
+  </div>`;
+  side += `<div class="side-box memo">
+    <div class="side-box-hdr"><h3>📝 상담메모</h3><button class="side-btn ghost" onclick="toggleBig('diet-memo-note', this)">크게보기</button></div>
+    <textarea class="memo-textarea" id="diet-memo-note" oninput="dietNotes.memo=this.value" placeholder="상담 중 원장님 의견을 적어주세요...">${esc(dietNotes.memo || '')}</textarea>
+  </div>`;
+  side += `<div class="save-bar">
+    <button onclick="saveDietAll(${r.rowNum})">💾 저장</button>
+    <span class="save-status"></span>
+  </div>`;
+
+  document.getElementById('detail').innerHTML =
+    `<div class="two-col"><div class="col-main">${h}</div><div class="col-side">${side}</div></div>`;
+}
+
+function saveDietAll(rowNum) {
+  setSaveStatus('저장 중...', '');
+  const payload = {
+    action: 'update',
+    key: adminKey,
+    rowNum: rowNum,
+    formType: 'diet',
+    notes: JSON.stringify(dietNotes),
+    height: editedVitals.height,
+    weight: editedVitals.weight,
+    goal: editedVitals.goal
+  };
+  fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+    .then(() => {
+      const r = dietRecords[selectedDietIdx];
+      if (r) {
+        r.doctorNotes = payload.notes;
+        r.height = payload.height;
+        r.weight = payload.weight;
+        r.goal = payload.goal;
+      }
+      setSaveStatus('저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')', 'ok');
+    })
+    .catch(() => {
+      setSaveStatus('저장 실패 - 네트워크를 확인해주세요.', 'err');
+    });
 }
 </script>
 </body>
