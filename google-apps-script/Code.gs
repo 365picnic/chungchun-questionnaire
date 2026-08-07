@@ -31,7 +31,7 @@ var SHEET_NAME = '문진응답';
 
 // 관리 페이지(admin.html)에서 답변 목록을 조회할 때 쓰는 비밀번호 역할의 값.
 // 필요하면 원하는 문자열로 바꾸고 "새 버전으로 배포"를 다시 하면 됩니다.
-var ADMIN_KEY = 'GbHXZumIjIYRZUiWLSQ4';
+var ADMIN_KEY = '3133';
 
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);

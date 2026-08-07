@@ -265,7 +265,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJ
 // 원장님 혼자만 쓰는 페이지라 비밀번호 입력 없이 바로 불러옵니다.
 // Code.gs의 ADMIN_KEY와 같은 값이며, 이 값은 google-apps-script/Code.gs에도
 // 그대로 적혀 있어(그 파일이 이미 공개 저장소에 있음) 별도로 숨겨도 의미가 없습니다.
-const adminKey = 'GbHXZumIjIYRZUiWLSQ4';
+const adminKey = '3133';
 let records = [];
 let selectedIdx = null;
 
@@ -299,8 +299,9 @@ function formatPhone(v) {
 function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
 
 function genderClass(g) {
-  if (g === '남' || g === '남성') return 'male';
-  if (g === '여' || g === '여성') return 'female';
+  if (!g) return '';
+  if (g.indexOf('남') === 0) return 'male';
+  if (g.indexOf('여') === 0) return 'female';
   return '';
 }
 
