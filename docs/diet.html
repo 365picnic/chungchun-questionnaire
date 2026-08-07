@@ -6,9 +6,18 @@
 <title>청춘한의원 다이어트 문진</title>
 <style>
 :root {
-  --brand-1: #2f3b8f;
-  --brand-2: #6d4fc9;
-  --brand-soft: #eef0fb;
+  /* 다이어트 문진 전용 팔레트 - 한약 문진(보라)과 구분되는, 짙은 네이비 + 골드 포인트의
+     고급스러운 톤으로 구성 (전체적인 색감 다양화 요청 반영) */
+  --brand-1: #16264a;
+  --brand-2: #33477a;
+  --brand-soft: #eef1f8;
+  --gold: #b8901f;
+  --gold-2: #e0b84a;
+  --gold-soft: #faf2df;
+  --d-teal: #0d8a7c;
+  --d-teal-soft: #e2f5f2;
+  --d-rose: #b8456b;
+  --d-rose-soft: #fbe9ef;
   --ink-900: #1e2233;
   --ink-700: #454b5f;
   --ink-500: #757c92;
@@ -36,17 +45,19 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .header .logo-img { height: 36px; width: auto; }
 .header .logo-img.sm { height: 26px; }
 .progress-bar { width: 100%; height: 6px; background: var(--line-soft); border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); border-radius: 4px; transition: width 0.4s ease; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand-2), var(--gold-2)); border-radius: 4px; transition: width 0.4s ease; }
 .progress-text { text-align: right; font-size: 11.5px; color: var(--ink-300); margin-bottom: 18px; }
 .step-info { font-size: 13.5px; color: var(--ink-500); margin-bottom: 16px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
-.step-info .cat { background: var(--brand-soft); color: var(--brand-1); padding: 4px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
+.step-info .cat { background: var(--brand-soft); color: var(--brand-2); padding: 4px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
 .step-info .num { color: var(--ink-300); font-size: 12.5px; }
 
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; font-weight: 700; font-size: 13.5px; margin-bottom: 8px; color: var(--ink-700); }
 .form-group .hint { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-300); margin-top: -4px; margin-bottom: 8px; }
 .form-group input, .form-group textarea { width: 100%; padding: 13px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 16px; background: var(--surface); transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; }
-.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(51,71,122,0.12); }
+.form-group input::placeholder, .form-group textarea::placeholder { color: var(--ink-300); font-weight: 400; }
+.form-group input[readonly] { background: var(--bg); color: var(--ink-700); cursor: pointer; }
 .birth-row { display: flex; gap: 8px; }
 .birth-row select { flex: 1; min-width: 0; padding: 13px 6px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 15px; background: var(--surface); color: var(--ink-900); }
 .birth-row select:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
@@ -65,6 +76,32 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .opt:hover { border-color: var(--brand-2); background: var(--brand-soft); }
 .opt.sel { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border-color: transparent; box-shadow: var(--shadow-md); font-weight: 600; }
 .opt .price-sub { display: block; font-size: 12px; font-weight: 500; margin-top: 3px; opacity: 0.85; }
+
+/* 처방 개월수 - 개월수별로 다른 포인트 컬러 (짧은 과정=teal, 중간=네이비, 장기=골드/프리미엄) */
+.opt.plan-1 { border-left: 4px solid var(--d-teal); }
+.opt.plan-1.sel { background: linear-gradient(135deg, var(--d-teal), #14a596); }
+.opt.plan-2 { border-left: 4px solid var(--brand-2); }
+.opt.plan-2.sel { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); }
+.opt.plan-3 { border-left: 4px solid var(--gold); }
+.opt.plan-3.sel { background: linear-gradient(135deg, var(--gold), var(--gold-2)); }
+
+/* 첫 화면 - 모델 배너 & 감량 속도 안내표 */
+.model-banner { width: 100%; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 18px; box-shadow: var(--shadow-md); }
+.model-banner img { width: 100%; display: block; }
+.rate-intro { font-size: 13px; color: var(--ink-700); line-height: 1.6; margin-bottom: 12px; text-align: center; }
+.rate-table { width: 100%; border-collapse: collapse; margin-bottom: 22px; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+.rate-table th { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; font-size: 12px; padding: 10px 6px; font-weight: 700; }
+.rate-table td { text-align: center; font-size: 12.5px; padding: 9px 6px; border-bottom: 1px solid var(--line-soft); color: var(--ink-900); }
+.rate-table tr:last-child td { border-bottom: none; }
+.rate-table td.total { font-weight: 800; color: var(--gold); font-size: 14px; }
+.rate-table td.note { color: var(--ink-500); font-size: 11px; text-align: left; }
+.rate-table tbody tr:nth-child(odd) { background: var(--bg); }
+
+/* 주소 검색 */
+.addr-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.addr-row input { flex: 1; }
+.addr-search-btn { flex-shrink: 0; padding: 0 18px; border: none; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.addr-search-btn:hover { box-shadow: var(--shadow-sm); }
 
 .nav-btns { display: flex; gap: 12px; margin-top: 26px; padding-bottom: 24px; }
 .nav-btn { flex: 1; padding: 15px; text-align: center; font-size: 15px; font-weight: 700; cursor: pointer; border: none; border-radius: var(--radius-md); transition: all 0.15s; }
@@ -96,6 +133,24 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
             <img class="logo-img" src="assets/청춘한의원_로고-01.png" alt="청춘한의원">
             <div class="sub">다이어트 사전문진</div>
         </div>
+
+        <div class="model-banner">
+            <img src="assets/diet-model.jpg" alt="청춘한의원 체감환" onerror="this.parentElement.style.display='none'">
+        </div>
+
+        <p class="rate-intro">일반적으로 청춘한의원 체감환을 드신 환자분들의<br>3개월 감량 속도는 다음과 같습니다.</p>
+        <table class="rate-table">
+            <thead>
+                <tr><th>총 감량</th><th>1개월차</th><th>2개월차</th><th>3개월차</th><th>해당하는 분</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="total">15kg</td><td>6kg</td><td>5kg</td><td>4kg</td><td class="note">고도비만, 먹는 양 많은 분</td></tr>
+                <tr><td class="total">12kg</td><td>5kg</td><td>4kg</td><td>3kg</td><td class="note">과체중, 먹는 양 많은 분</td></tr>
+                <tr><td class="total">9kg</td><td>4kg</td><td>3kg</td><td>2kg</td><td class="note">먹는 양 많지 않은 분</td></tr>
+                <tr><td class="total">6kg</td><td>3kg</td><td>2kg</td><td>1kg</td><td class="note">노인, 마른 분</td></tr>
+            </tbody>
+        </table>
+
         <div class="form-group">
             <label>성함</label>
             <input type="text" id="inp-name" placeholder="이름을 입력해주세요">
@@ -133,8 +188,11 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         <div class="form-group">
             <label>택배로 받는 경우 주소를 자세히 적어주세요.</label>
             <span class="hint">내원 수령이시면 비워두셔도 됩니다.</span>
-            <input type="text" id="inp-addr1" placeholder="기본 주소" style="margin-bottom:8px;">
-            <input type="text" id="inp-addr2" placeholder="상세 주소">
+            <div class="addr-row">
+                <input type="text" id="inp-addr1" placeholder="주소 검색 버튼을 눌러주세요" readonly onclick="openAddressSearch()">
+                <button type="button" class="addr-search-btn" onclick="openAddressSearch()">주소 검색</button>
+            </div>
+            <input type="text" id="inp-addr2" placeholder="상세 주소 (동/호수 등)">
         </div>
         <button class="start-btn" onclick="goToPlan()">다음</button>
     </div>
@@ -202,15 +260,28 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     </div>
 </div>
 
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script src="questions-diet.js"></script>
 <script>
 // docs/index.html, herbal.html 과 같은 구글 앱스스크립트 주소를 사용합니다.
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
 
+// 다음(카카오) 우편번호 서비스 - 주소를 검색해서 선택하면 기본주소 칸에 자동으로 채워지고,
+// 그 아래 상세주소 칸에 동/호수 등을 직접 입력하는 방식입니다.
+function openAddressSearch() {
+    new daum.Postcode({
+        oncomplete: function (data) {
+            const addr = data.roadAddress || data.jibunAddress;
+            document.getElementById('inp-addr1').value = addr;
+            document.getElementById('inp-addr2').focus();
+        }
+    }).open();
+}
+
 const PLAN_OPTS = [
-  {id:"1개월", label:"1개월", price:"125,000원"},
-  {id:"2개월", label:"2개월", price:"237,500원", sub:"125,000원 + 112,500원(10%할인)"},
-  {id:"3개월", label:"3개월", price:"350,000원", sub:"125,000원 + 112,500원(10%할인) + 112,500원(10%할인)"}
+  {id:"1개월", cls:"plan-1", label:"1개월", price:"125,000원"},
+  {id:"2개월", cls:"plan-2", label:"2개월", price:"237,500원", sub:"125,000원 + 112,500원(10%할인)"},
+  {id:"3개월", cls:"plan-3", label:"3개월", price:"350,000원", sub:"125,000원 + 112,500원(10%할인) + 112,500원(10%할인)"}
 ];
 
 let selectedGender = null;
@@ -240,7 +311,7 @@ let patientInfo = {};
     const el = document.getElementById('plan-opts');
     if (!el) return;
     el.innerHTML = PLAN_OPTS.map(p => `
-      <div class="opt" id="plan-${p.id}" onclick="selectPlan('${p.id}')">
+      <div class="opt ${p.cls}" id="plan-${p.id}" onclick="selectPlan('${p.id}')">
         ${p.label} (${p.price})${p.sub ? `<span class="price-sub">${p.sub}</span>` : ''}
       </div>`).join('');
 })();
