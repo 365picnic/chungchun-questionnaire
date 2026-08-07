@@ -29,29 +29,28 @@
   --radius-lg: 18px;
   --radius-md: 14px;
   --radius-sm: 10px;
+  --c-teal: #0d9488;
+  --c-teal-soft: #e1f6f2;
+  --c-pink: #db2777;
+  --c-pink-soft: #fce7f3;
+  --c-blue: #2563eb;
+  --c-blue-soft: #dbeafe;
+  --c-orange: #ea580c;
+  --c-orange-soft: #ffedd5;
+  --c-violet: #7c3aed;
+  --c-violet-soft: #f1e9fd;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; background: var(--bg); color: var(--ink-900); -webkit-font-smoothing: antialiased; }
 
-/* ===== 잠금 화면 ===== */
-#lock-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); }
-.lock-box { background: var(--surface); border-radius: var(--radius-lg); padding: 40px 36px; width: 100%; max-width: 340px; box-shadow: var(--shadow-lg); text-align: center; }
-.lock-box .lock-logo { height: 34px; width: auto; margin-bottom: 4px; }
-.lock-box .sub { font-size: 12.5px; color: var(--ink-500); margin-bottom: 22px; }
-.lock-box input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 15px; margin-bottom: 12px; }
-.lock-box input:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
-.lock-box button { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-md); }
-.lock-box .err { color: var(--danger); font-size: 12px; margin-top: 10px; min-height: 16px; }
-
 /* ===== 대시보드 ===== */
-#dash { display: none; }
-.topbar { background: var(--surface); border-bottom: 1px solid var(--line); padding: 10px 22px; display: flex; justify-content: space-between; align-items: center; height: 52px; }
+.topbar { background: var(--surface); border-bottom: 4px solid transparent; border-image: linear-gradient(90deg, var(--c-violet), var(--c-pink), var(--c-orange), var(--c-teal), var(--c-blue)) 1; padding: 10px 22px; display: flex; justify-content: space-between; align-items: center; height: 52px; box-shadow: var(--shadow-md); }
 .topbar .brand { font-weight: 700; font-size: 15px; color: var(--ink-900); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
 .topbar .brand span { color: var(--brand-2); }
 .topbar .brand .brand-logo { height: 20px; width: auto; }
 .topbar .right { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--ink-500); }
-.topbar button { background: var(--brand-1); color: #fff; border: none; padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 700; transition: background .15s; }
-.topbar button:hover { background: var(--brand-2); }
+.topbar button { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 7px 16px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12.5px; font-weight: 700; transition: box-shadow .15s; box-shadow: var(--shadow-sm); }
+.topbar button:hover { box-shadow: var(--shadow-md); }
 
 .layout { display: flex; height: calc(100vh - 52px); }
 .sidebar { width: 300px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
@@ -62,11 +61,13 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .p-item { padding: 12px 16px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background .1s; display: flex; gap: 10px; align-items: flex-start; }
 .p-item:hover { background: #f7f8fd; }
 .p-item:hover .p-del { opacity: 1; }
-.p-item.active { background: var(--brand-soft); border-left: 3px solid var(--brand-1); padding-left: 13px; }
+.p-item.active { background: var(--brand-soft); border-left: 4px solid var(--c-violet); padding-left: 12px; }
 .p-item .p-num { font-size: 11px; font-weight: 700; color: var(--ink-300); min-width: 18px; flex-shrink: 0; margin-top: 1px; }
 .p-item .p-body { flex: 1; min-width: 0; }
 .p-item .nm { font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 6px; color: var(--ink-900); }
-.p-item .nm .gender-tag { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: var(--line-soft); color: var(--ink-500); }
+.p-item .nm .gender-tag { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--line-soft); color: var(--ink-500); }
+.p-item .nm .gender-tag.male, .patient-card .name .gender-tag.male { background: var(--c-blue-soft); color: var(--c-blue); }
+.p-item .nm .gender-tag.female, .patient-card .name .gender-tag.female { background: var(--c-pink-soft); color: var(--c-pink); }
 .p-item .inf { font-size: 11.5px; color: var(--ink-500); margin-top: 3px; }
 .p-item .tm { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
 .p-item .p-del { flex-shrink: 0; opacity: 0; transition: opacity .15s; background: none; border: none; color: var(--ink-300); font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
@@ -79,13 +80,14 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .patient-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 22px 34px; align-items: center; box-shadow: var(--shadow-sm); }
 .patient-card .name { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
 .patient-card .name .gender-tag { font-size: 11px; font-weight: 700; margin-left: 8px; padding: 2px 9px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-2); vertical-align: middle; }
+.patient-card { border-top: 4px solid var(--c-violet); }
 .patient-card .field { font-size: 12px; color: var(--ink-500); }
 .patient-card .field b { display: block; font-size: 14px; color: var(--ink-900); font-weight: 700; margin-top: 2px; }
 .patient-card .copy-btn { margin-left: auto; background: var(--brand-soft); color: var(--brand-1); border: none; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .15s; }
 .patient-card .copy-btn:hover { background: #e2e5f9; }
 
-.bmi-section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
-.bmi-section h3 { font-size: 13px; color: var(--brand-1); margin-bottom: 10px; font-weight: 700; }
+.bmi-section { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c-teal); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+.bmi-section h3 { font-size: 13px; color: var(--c-teal); margin-bottom: 10px; font-weight: 700; }
 .bmi-bar { display: flex; gap: 8px; align-items: flex-end; justify-content: center; flex-wrap: wrap; }
 .bmi-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 8px 6px; border-radius: var(--radius-sm); min-width: 72px; }
 .bmi-circle { width: 66px; height: 66px; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; border: 2px solid var(--line); transition: all .15s; }
@@ -97,8 +99,8 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .bmi-note { font-size: 11.5px; color: var(--ink-300); text-align: center; margin-top: 8px; }
 
 /* 형색성정: 성향/면색/붉은기/기타/안진 - 모두 원장님이 진료 중 직접 판단해 표시 (자동 아님) */
-.hss-section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
-.hss-section h3 { font-size: 13px; color: var(--brand-1); margin-bottom: 4px; font-weight: 700; }
+.hss-section { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c-violet); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+.hss-section h3 { font-size: 13px; color: var(--c-violet); margin-bottom: 4px; font-weight: 700; }
 .hss-section .sub { font-size: 11.5px; color: var(--ink-300); margin-bottom: 12px; }
 .hss-two { display: flex; gap: 28px; }
 .hss-left { flex: 1; min-width: 0; }
@@ -109,12 +111,12 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .dot-scale .end-label { font-size: 11.5px; color: var(--ink-500); font-weight: 600; min-width: 30px; }
 .dot-scale .end-label.right { text-align: right; }
 .dot-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); cursor: pointer; transition: all .15s; flex-shrink: 0; }
-.dot-btn:hover { border-color: var(--brand-2); }
-.dot-btn.active { background: var(--brand-1); border-color: var(--brand-1); }
+.dot-btn:hover { border-color: var(--c-violet); }
+.dot-btn.active { background: var(--c-violet); border-color: var(--c-violet); }
 .tag-group { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag-btn { padding: 5px 12px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); font-size: 11.5px; cursor: pointer; background: var(--surface); color: var(--ink-900); transition: all .15s; }
-.tag-btn:hover { border-color: var(--brand-2); }
-.tag-btn.active { background: var(--brand-1); color: #fff; border-color: var(--brand-1); }
+.tag-btn:hover { border-color: var(--c-violet); }
+.tag-btn.active { background: var(--c-violet); color: #fff; border-color: var(--c-violet); }
 .anjin-title { font-size: 11.5px; color: var(--ink-900); font-weight: 700; margin-bottom: 8px; }
 .anjin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
 .anjin-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-size: 11.5px; gap: 8px; }
@@ -124,7 +126,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .star-btn.on { color: #f0b93d; }
 .star-btn:hover { color: #f0b93d; }
 
-.symptom-box { background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; }
+.symptom-box { background: var(--warn-soft); border: 1px solid var(--warn-line); border-left: 4px solid var(--warn); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; }
 .symptom-box h3 { font-size: 13px; color: var(--warn); margin-bottom: 8px; font-weight: 700; }
 .symptom-box pre { white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.7; color: #6b4f16; }
 
@@ -133,16 +135,20 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .col-main { flex: 1; min-width: 0; }
 .col-side { width: 320px; flex-shrink: 0; }
 
-.side-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+.side-box { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c-blue); border-radius: var(--radius-md); padding: 16px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
+.side-box.cc { border-top-color: var(--c-orange); }
+.side-box.memo { border-top-color: var(--c-teal); }
+.side-box.ai { border-top-color: var(--c-violet); }
+.side-box.presc { border-top-color: var(--c-pink); }
 .side-box-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .side-box-hdr h3 { font-size: 13px; color: var(--ink-900); font-weight: 700; }
-.side-btn { background: var(--brand-1); color: #fff; border: none; padding: 5px 12px; border-radius: var(--radius-sm); font-size: 11.5px; font-weight: 700; cursor: pointer; transition: background .15s; }
-.side-btn:hover { background: var(--brand-2); }
+.side-btn { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 5px 12px; border-radius: var(--radius-sm); font-size: 11.5px; font-weight: 700; cursor: pointer; transition: box-shadow .15s; }
+.side-btn:hover { box-shadow: var(--shadow-sm); }
 .side-btn.ghost { background: var(--brand-soft); color: var(--brand-1); }
 .side-btn.ghost:hover { background: #e2e5f9; }
 
 /* AI 처방 추천 */
-.ai-run-btn { width: 100%; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 11px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
+.ai-run-btn { width: 100%; background: linear-gradient(135deg, var(--c-violet), var(--c-pink)); color: #fff; border: none; padding: 11px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
 .ai-run-btn:hover { box-shadow: var(--shadow-md); }
 .ai-run-btn:disabled { opacity: .6; cursor: not-allowed; }
 .ai-status { font-size: 12px; color: var(--ink-500); margin-top: 8px; white-space: pre-wrap; word-break: break-all; }
@@ -175,6 +181,11 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .cc-row:first-child { border-top: none; }
 .cc-row.shaded { background: #f8f8fc; }
 .cc-label { width: 60px; flex-shrink: 0; background: var(--ink-500); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 4px; }
+.cc-label.cc-cc { background: var(--c-violet); }
+.cc-label.cc-os { background: var(--c-teal); }
+.cc-label.cc-symptom { background: var(--c-orange); }
+.cc-label.cc-worse { background: var(--danger); }
+.cc-label.cc-better { background: var(--success); }
 .cc-input { flex: 1; border: none; background: transparent; font-size: 12.5px; padding: 8px 10px; resize: vertical; min-height: 34px; font-family: inherit; color: var(--ink-900); }
 .cc-input:focus { outline: none; background: #fbfbff; }
 
@@ -185,6 +196,9 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .cat-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
 .cat-card .cat-hdr { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; font-size: 12.5px; font-weight: 700; padding: 9px 16px; }
+.cat-card:nth-child(4n+2) .cat-hdr { background: linear-gradient(135deg, var(--c-teal), #16a34a); }
+.cat-card:nth-child(4n+3) .cat-hdr { background: linear-gradient(135deg, var(--c-orange), var(--c-pink)); }
+.cat-card:nth-child(4n+4) .cat-hdr { background: linear-gradient(135deg, var(--c-blue), var(--c-violet)); }
 .cat-card .cat-body { padding: 12px 16px; }
 .qa-row { font-size: 13px; line-height: 1.6; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
 .qa-row:last-child { border-bottom: none; }
@@ -195,8 +209,9 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 
 /* 문진 답변 수정 UI */
 .save-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.save-bar button { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 9px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-sm); transition: box-shadow .15s; }
-.save-bar button:hover { box-shadow: var(--shadow-md); }
+.save-bar button { background: linear-gradient(135deg, var(--c-violet), var(--c-pink)); color: #fff; border: none; padding: 11px 22px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-md); transition: transform .1s, box-shadow .15s; }
+.save-bar button:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.save-bar.top { padding: 12px 14px; background: var(--brand-soft); border-radius: var(--radius-md); }
 .save-status { font-size: 12px; color: var(--ink-500); }
 .save-status.ok { color: var(--success); font-weight: 600; }
 .save-status.err { color: var(--danger); font-weight: 600; }
@@ -220,16 +235,6 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 </style>
 </head>
 <body>
-
-<div id="lock-screen">
-  <div class="lock-box">
-    <img class="lock-logo" src="assets/청춘한의원_로고-01.png" alt="청춘한의원">
-    <div class="sub">문진 관리 - 비밀번호를 입력해주세요</div>
-    <input type="password" id="inp-key" placeholder="비밀번호" onkeydown="if(event.key==='Enter')unlock()">
-    <button onclick="unlock()">확인</button>
-    <div class="err" id="lock-err"></div>
-  </div>
-</div>
 
 <div id="dash">
   <div class="topbar">
@@ -257,7 +262,10 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 // docs/index.html 의 GAS_URL 과 동일한 주소를 사용합니다.
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
 
-let adminKey = sessionStorage.getItem('admin_key') || '';
+// 원장님 혼자만 쓰는 페이지라 비밀번호 입력 없이 바로 불러옵니다.
+// Code.gs의 ADMIN_KEY와 같은 값이며, 이 값은 google-apps-script/Code.gs에도
+// 그대로 적혀 있어(그 파일이 이미 공개 저장소에 있음) 별도로 숨겨도 의미가 없습니다.
+const adminKey = 'GbHXZumIjIYRZUiWLSQ4';
 let records = [];
 let selectedIdx = null;
 
@@ -267,6 +275,9 @@ let selectedIdx = null;
 let answers = {};
 let selectedGender = null;
 let editingRowNum = null;
+// 현재 열린 환자가 실제 문진 답변 수정 UI(라디오/체크박스)를 보여주고 있는지 여부.
+// true일 때만 통합 저장 버튼이 raw/summary도 함께 저장합니다.
+let hasEditableAnswers = false;
 
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
@@ -275,14 +286,7 @@ let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek
 // AI 처방 추천 결과(마지막으로 받은 것) - "근거 보기"/"처방메모에 담기" 버튼에서 참조합니다.
 let lastAiResult = null;
 
-if (adminKey) tryLoadWithKey();
-
-function unlock() {
-  const k = document.getElementById('inp-key').value.trim();
-  if (!k) return;
-  adminKey = k;
-  tryLoadWithKey();
-}
+loadData();
 
 // 구글시트가 "01090261075" 같은 전화번호를 숫자로 자동 인식해서 맨 앞 0이 사라지는 경우가 있어
 // (이때 r.phone은 문자열이 아니라 숫자가 되어 .includes() 검색도 깨집니다), 불러온 직후 복구합니다.
@@ -294,38 +298,15 @@ function formatPhone(v) {
 }
 function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
 
-// 비밀번호가 틀렸을 때 Code.gs의 doGet이 돌려주는 안내 문구와 정확히 같은 문자열입니다.
-// 이 문구가 아닌 다른 응답(빈 값, 에러 페이지 등)은 비밀번호 문제가 아니라 구글 서버 쪽의
-// 일시적인 오류(과부하, 요청 제한 등)일 가능성이 높으므로 다른 안내 메시지를 보여줍니다.
-const WRONG_KEY_MESSAGE = '청춘한의원 문진 접수 서버가 정상 동작 중입니다.';
-
-async function tryLoadWithKey() {
-  document.getElementById('lock-err').textContent = '';
-  try {
-    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch (e) { data = null; }
-    if (!Array.isArray(data)) {
-      const msg = text.trim() === WRONG_KEY_MESSAGE
-        ? '비밀번호가 올바르지 않습니다.'
-        : '서버 응답에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
-      document.getElementById('lock-err').textContent = msg;
-      sessionStorage.removeItem('admin_key');
-      return;
-    }
-    sessionStorage.setItem('admin_key', adminKey);
-    records = data.map(normalizeRecord);
-    document.getElementById('lock-screen').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
-    renderList();
-    updateTimestamp();
-  } catch (e) {
-    document.getElementById('lock-err').textContent = '서버에 연결할 수 없습니다. 네트워크를 확인해주세요.';
-  }
+function genderClass(g) {
+  if (g === '남' || g === '남성') return 'male';
+  if (g === '여' || g === '여성') return 'female';
+  return '';
 }
 
 async function loadData() {
+  const statusEl = document.getElementById('last-updated');
+  if (statusEl && records.length === 0) statusEl.textContent = '불러오는 중...';
   try {
     const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
     const data = await res.json();
@@ -334,8 +315,12 @@ async function loadData() {
       renderList();
       if (selectedIdx !== null) renderDetail(selectedIdx);
       updateTimestamp();
+    } else if (statusEl) {
+      statusEl.textContent = '서버 응답에 문제가 있습니다.';
     }
-  } catch (e) { /* 조용히 실패 - 다음 새로고침에서 재시도 */ }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '서버에 연결하지 못했습니다. 새로고침을 눌러주세요.';
+  }
 }
 
 function updateTimestamp() {
@@ -361,7 +346,7 @@ function renderList() {
   list.innerHTML = filtered.map(({ r, i }) => {
     const dt = r.submittedAt ? new Date(r.submittedAt) : null;
     const dtText = dt ? dt.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-    const genderTag = r.gender ? `<span class="gender-tag">${r.gender}</span>` : '';
+    const genderTag = r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${r.gender}</span>` : '';
     const num = records.length - i;
     return `<div class="p-item${i === selectedIdx ? ' active' : ''}" onclick="renderDetail(${i})">
       <span class="p-num">${num}</span>
@@ -678,26 +663,31 @@ function buildEditableCats() {
   return moveCatToFront(cats, '감정');
 }
 
-function saveCorrections(rowNum) {
-  const status = document.getElementById('save-status');
-  if (status) { status.textContent = '저장 중...'; status.className = 'save-status'; }
-  const payload = {
-    action: 'update',
-    key: adminKey,
-    rowNum: rowNum,
-    raw: JSON.stringify(answers),
-    summary: buildSummary()
-  };
+// 문진 답변 수정(raw/summary)과 형색성정·주증상·메모(notes)를 한 번에 저장합니다.
+// 구글시트에서는 서로 다른 칸이라 따로 저장돼야 하지만, 원장님 입장에서는 버튼 하나면 충분합니다.
+// 저장 버튼은 사이드 패널 위/아래 두 곳에 있어, 상태 메시지도 둘 다(.save-status) 갱신합니다.
+function setSaveStatus(text, cls) {
+  document.querySelectorAll('.save-status').forEach(el => { el.textContent = text; el.className = 'save-status' + (cls ? ' ' + cls : ''); });
+}
+
+function saveAll(rowNum) {
+  setSaveStatus('저장 중...', '');
+  const payload = { action: 'update', key: adminKey, rowNum: rowNum, notes: JSON.stringify(doctorNotes) };
+  if (hasEditableAnswers) {
+    payload.raw = JSON.stringify(answers);
+    payload.summary = buildSummary();
+  }
   fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
     .then(() => {
       const r = records[selectedIdx];
-      if (r) { r.raw = payload.raw; r.summary = payload.summary; }
-      const st = document.getElementById('save-status');
-      if (st) { st.textContent = '저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')'; st.className = 'save-status ok'; }
+      if (r) {
+        r.doctorNotes = payload.notes;
+        if (hasEditableAnswers) { r.raw = payload.raw; r.summary = payload.summary; }
+      }
+      setSaveStatus('저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')', 'ok');
     })
     .catch(() => {
-      const st = document.getElementById('save-status');
-      if (st) { st.textContent = '저장 실패 - 네트워크를 확인해주세요.'; st.className = 'save-status err'; }
+      setSaveStatus('저장 실패 - 네트워크를 확인해주세요.', 'err');
     });
 }
 
@@ -762,7 +752,7 @@ function normalizeDoctorNotes(n) {
 }
 
 function ccRow(label, field, i, val, shaded) {
-  return `<div class="cc-row${shaded ? ' shaded' : ''}"><span class="cc-label">${esc(label)}</span><textarea class="cc-input" oninput="updateCC(${i},'${field}',this.value)">${esc(val || '')}</textarea></div>`;
+  return `<div class="cc-row${shaded ? ' shaded' : ''}"><span class="cc-label cc-${field}">${esc(label)}</span><textarea class="cc-input" oninput="updateCC(${i},'${field}',this.value)">${esc(val || '')}</textarea></div>`;
 }
 
 function renderChiefComplaints() {
@@ -797,23 +787,6 @@ function toggleBig(id, btn) {
   if (!el) return;
   const isBig = el.classList.toggle('big');
   if (btn) btn.textContent = isBig ? '작게보기' : '크게보기';
-}
-
-function saveNotes(rowNum) {
-  const status = document.getElementById('notes-save-status');
-  if (status) { status.textContent = '저장 중...'; status.className = 'save-status'; }
-  const payload = { action: 'update', key: adminKey, rowNum: rowNum, notes: JSON.stringify(doctorNotes) };
-  fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
-    .then(() => {
-      const r = records[selectedIdx];
-      if (r) r.doctorNotes = payload.notes;
-      const st = document.getElementById('notes-save-status');
-      if (st) { st.textContent = '저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')'; st.className = 'save-status ok'; }
-    })
-    .catch(() => {
-      const st = document.getElementById('notes-save-status');
-      if (st) { st.textContent = '저장 실패 - 네트워크를 확인해주세요.'; st.className = 'save-status err'; }
-    });
 }
 
 // 0~6 dot-scale 값을 사람이 읽을 수 있는 텍스트로 변환 (AI에게 보낼 요약용)
@@ -970,28 +943,32 @@ function renderAiResult(result) {
 
 function renderSidePanel(rowNum) {
   let h = '';
-  h += `<div class="side-box">
-    <div class="side-box-hdr"><h3>주증상</h3><button class="side-btn" onclick="addCC()">CC 추가</button></div>
+  h += `<div class="save-bar top">
+    <button onclick="saveAll(${rowNum})">💾 저장</button>
+    <span class="save-status" id="save-status"></span>
+  </div>`;
+  h += `<div class="side-box cc">
+    <div class="side-box-hdr"><h3>🗒️ 주증상</h3><button class="side-btn" onclick="addCC()">CC 추가</button></div>
     <div id="cc-list">${renderChiefComplaints()}</div>
   </div>`;
-  h += `<div class="side-box">
-    <div class="side-box-hdr"><h3>진료메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-note', this)">크게보기</button></div>
+  h += `<div class="side-box memo">
+    <div class="side-box-hdr"><h3>📝 진료메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-note', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="memo-note" oninput="doctorNotes.memo=this.value" placeholder="진료 중 원장님 의견을 적어주세요...">${esc(doctorNotes.memo || '')}</textarea>
   </div>`;
-  h += `<div class="side-box">
+  h += `<div class="side-box ai">
     <div class="side-box-hdr"><h3>✨ AI 처방 추천</h3></div>
     <button class="ai-run-btn" id="ai-run-btn" onclick="runAiRecommend(${rowNum})">🤖 ${lastAiResult ? 'AI 처방 분석 다시 실행' : 'AI 처방 분석 실행'}</button>
     <div class="ai-note">문진·형색성정·안진 데이터를 바탕으로 후보를 제시합니다. 최종 처방은 원장님이 직접 판단해주세요.</div>
     <div class="ai-status" id="ai-status"></div>
     <div id="ai-result">${lastAiResult ? renderAiResult(lastAiResult) : ''}</div>
   </div>`;
-  h += `<div class="side-box">
-    <div class="side-box-hdr"><h3>처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>
+  h += `<div class="side-box presc">
+    <div class="side-box-hdr"><h3>💊 처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="memo-presc" oninput="doctorNotes.prescription=this.value" placeholder="처방 내용을 적어주세요...">${esc(doctorNotes.prescription || '')}</textarea>
   </div>`;
   h += `<div class="save-bar">
-    <button onclick="saveNotes(${rowNum})">저장 (형색성정·주증상·메모)</button>
-    <span class="save-status" id="notes-save-status"></span>
+    <button onclick="saveAll(${rowNum})">💾 저장</button>
+    <span class="save-status"></span>
   </div>`;
   return h;
 }
@@ -1021,10 +998,11 @@ function renderDetail(i) {
     try { lastAiResult = r.aiResult ? JSON.parse(r.aiResult) : null; } catch (e) { lastAiResult = null; }
     editingRowNum = r.rowNum;
   }
+  hasEditableAnswers = !!editableAnswers;
 
   let h = '';
   h += `<div class="patient-card">
-    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag">${esc(r.gender)}</span>` : ''}</div>
+    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}</div>
     <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">키 / 몸무게<b>${esc(r.height || '-')}cm / ${esc(r.weight || '-')}kg</b></div>
@@ -1047,12 +1025,7 @@ function renderDetail(i) {
 
   if (editableAnswers) {
     // 실제 라디오버튼/체크박스로 문진 답변을 그려서, 원장님이 진료 중 환자와 함께 보면서
-    // 잘못 표현된 답변이 있으면 바로 클릭해서 고칠 수 있게 합니다.
-    h += `<div class="save-bar">
-      <button onclick="saveCorrections(${r.rowNum})">수정 내용 저장</button>
-      <span class="save-status" id="save-status"></span>
-    </div>`;
-
+    // 잘못 표현된 답변이 있으면 바로 클릭해서 고칠 수 있게 합니다. (저장 버튼은 오른쪽 패널에 하나로 통합)
     const cats = buildEditableCats();
     h += `<div class="cat-grid">`;
     cats.forEach(cat => {
