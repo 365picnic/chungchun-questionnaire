@@ -211,7 +211,14 @@ function handleAiRecommend_(data) {
       parts: [{ text: systemPrompt }]
     },
     generationConfig: {
-      maxOutputTokens: 3000
+      // gemini-3.6-flash는 기본적으로 내부 "생각(thinking)" 토큰을 사용하는데, 이 토큰도
+      // maxOutputTokens 예산에서 함께 차감된다. 3000 정도로는 생각 토큰만으로 예산이 다 소진되어
+      // 정작 JSON 출력이 중간에 잘리는 문제가 있었다(따옴표/중괄호가 안 닫힌 채로 끊김).
+      // thinkingLevel을 낮춰 생각 토큰 소비를 줄이고, maxOutputTokens도 넉넉히 늘려서 대비한다.
+      maxOutputTokens: 8000,
+      thinkingConfig: {
+        thinkingLevel: 'low'
+      }
     }
   };
 
@@ -244,8 +251,10 @@ function handleAiRecommend_(data) {
   }
 
   var text = '';
+  var finishReason = '';
   if (parsed.candidates && parsed.candidates.length && parsed.candidates[0].content && parsed.candidates[0].content.parts) {
     text = parsed.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('');
+    finishReason = parsed.candidates[0].finishReason || '';
   }
 
   // Gemini가 지시대로 순수 JSON만 주면 좋겠지만, 앞뒤에 설명이나 ```json 코드블록을 덧붙이는
@@ -257,7 +266,12 @@ function handleAiRecommend_(data) {
     var cleaned = (jsonStart >= 0 && jsonEnd > jsonStart) ? text.slice(jsonStart, jsonEnd + 1) : text.trim();
     resultJson = JSON.parse(cleaned);
   } catch (e) {
-    return jsonOutput_({ status: 'error', message: 'AI 응답을 해석하지 못했습니다.', raw: text.slice(0, 800) });
+    // 응답이 도중에 잘렸을 때(finishReason === 'MAX_TOKENS')는 원인을 명확히 알려줍니다.
+    var msg = finishReason === 'MAX_TOKENS'
+      ? 'AI 응답이 글자 수 제한(maxOutputTokens)에 걸려 중간에 잘렸습니다. 다시 시도해보시고, ' +
+        '계속 반복되면 Code.gs의 maxOutputTokens 값을 늘려야 합니다.'
+      : 'AI 응답을 해석하지 못했습니다.';
+    return jsonOutput_({ status: 'error', message: msg, raw: text.slice(0, 800) });
   }
 
   var rowNum = parseInt(data.rowNum, 10);
