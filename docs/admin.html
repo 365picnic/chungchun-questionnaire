@@ -409,7 +409,7 @@ function renderList() {
   // 가장 오래된 접수가 1번이 되도록 뒤에서부터 번호를 매깁니다 (목록에 보이는 순서 자체는 최신순 그대로 유지).
   list.innerHTML = filtered.map(({ r, i }) => {
     const dt = r.submittedAt ? new Date(r.submittedAt) : null;
-    const dtText = dt ? dt.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const dtText = dt ? dt.toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     const genderTag = r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${r.gender}</span>` : '';
     const num = src.length - i;
     return `<div class="p-item${i === curIdx ? ' active' : ''}" onclick="${openFn}(${i})">
