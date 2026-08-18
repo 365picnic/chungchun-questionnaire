@@ -225,22 +225,34 @@ function handleAiRecommend_(data) {
   var model = 'gemini-3.6-flash';
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + encodeURIComponent(apiKey);
 
-  var res;
-  try {
-    res = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-  } catch (err) {
-    return jsonOutput_({ status: 'error', message: 'Gemini API 호출 실패: ' + err.message });
+  // Gemini 쪽이 일시적으로 혼잡할 때(503 UNAVAILABLE) 바로 실패시키지 않고,
+  // 잠깐 대기 후 최대 3회까지 재시도합니다. 429(요청 과다)도 같은 방식으로 재시도합니다.
+  var res, code, bodyText;
+  var maxAttempts = 3;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      res = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+    } catch (err) {
+      return jsonOutput_({ status: 'error', message: 'Gemini API 호출 실패: ' + err.message });
+    }
+
+    code = res.getResponseCode();
+    bodyText = res.getContentText();
+
+    if (code !== 503 && code !== 429) break;
+    if (attempt < maxAttempts) {
+      Utilities.sleep(1500 * attempt); // 1.5초, 3초로 점점 늘려가며 대기
+    }
   }
 
-  var code = res.getResponseCode();
-  var bodyText = res.getContentText();
   if (code !== 200) {
-    return jsonOutput_({ status: 'error', message: 'Gemini API 오류(' + code + '): ' + bodyText.slice(0, 300) });
+    var retryNote = (code === 503 || code === 429) ? ' (여러 번 재시도했지만 계속 실패했습니다. 잠시 후 다시 시도해주세요.)' : '';
+    return jsonOutput_({ status: 'error', message: 'Gemini API 오류(' + code + '): ' + bodyText.slice(0, 300) + retryNote });
   }
 
   var parsed;
