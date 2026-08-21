@@ -172,15 +172,16 @@ const Q = [
  opts:["찬 물을 좋아하는 편","따듯한 물을 좋아하는 편","상관없다"]},
 
 {id:"alcohol_freq",cat:"술",title:"술을 얼마나 자주 마시나요?",type:"single",
- opts:["일주일 3~4번 이상","일주일 2~3회","한달 3~4번 이하","술이 안 맞는 것 같아 잘 안 마신다","안 마신다"]},
+ opts:["일주일 3~4번 이상","일주일 2~3회","한달 3~4번 이하","술이 안 맞는 것 같아 잘 안 마신다","안 마신다"],
+ cond:function(){return !isChildPatient}},
 
 {id:"alcohol_effect",cat:"술",title:"술을 조금만 마셔도?",type:"multi",
  opts:["얼굴~전신이 금방 붉어진다","금방 취한다","몸이 불편해진다","숙취가 오래간다","피부에 두드러기나 발진이 잘 생긴다","해당 없음"],
- cond:function(){return answers["alcohol_freq"]!=="안 마신다"}},
+ cond:function(){return !isChildPatient && answers["alcohol_freq"]!=="안 마신다"}},
 
 {id:"liver",cat:"술",title:"해당하는 것이 있나요?",type:"multi",
  opts:["지방간이 있다~예전에 있었다","간수치가 높은편~예전에 높았다","해당 없음"],
- cond:function(){return answers["alcohol_freq"]!=="안 마신다"}},
+ cond:function(){return !isChildPatient && answers["alcohol_freq"]!=="안 마신다"}},
 
 {id:"nausea",cat:"속메스꺼움",title:"비위가 약해서 속이 메슥거릴 때가 많나요?",type:"single",
  opts:["그렇다","아니다"],
@@ -331,9 +332,11 @@ const Q = [
 {id:"symptom_entry",cat:"증상입력",title:"치료가 필요한 부분을 간략하게 적어주세요.",type:"symptom_entry"}
 ];
 
-// 조건부 문항(cond)과 여성 전용 문항은 answers / selectedGender 전역 변수를 참조합니다.
-// index.html, admin.html 양쪽에서 이 스크립트를 불러오기 전에
-// `let answers = {}`, `let selectedGender = null` 을 선언해두어야 합니다.
+// 조건부 문항(cond)과 여성 전용 문항은 answers / selectedGender / isChildPatient 전역 변수를 참조합니다.
+// herbal.html, admin.html 양쪽에서 이 스크립트를 불러오기 전에
+// `let answers = {}`, `let selectedGender = null`, `let isChildPatient = false` 를 선언해두어야 합니다.
+// isChildPatient(만 15세 이하)는 growth-data.js의 isChildAge()로 계산합니다 - 소아에게 맞지 않는
+// 술(음주) 관련 문항을 문진에서 제외하기 위한 용도입니다.
 
 function visibleQ() { return Q.filter(q => !q.cond || q.cond()); }
 

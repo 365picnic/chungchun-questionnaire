@@ -150,9 +150,9 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         <div class="form-group">
             <label>생년월일</label>
             <div class="birth-row">
-                <select id="inp-birth-y"><option value="">년도</option></select>
-                <select id="inp-birth-m"><option value="">월</option></select>
-                <select id="inp-birth-d"><option value="">일</option></select>
+                <select id="inp-birth-y" onchange="updateChildFieldsVisibility()"><option value="">년도</option></select>
+                <select id="inp-birth-m" onchange="updateChildFieldsVisibility()"><option value="">월</option></select>
+                <select id="inp-birth-d" onchange="updateChildFieldsVisibility()"><option value="">일</option></select>
             </div>
         </div>
         <div class="form-group">
@@ -162,6 +162,13 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         <div class="form-group">
             <label>몸무게 (kg)</label>
             <input type="number" id="inp-weight" placeholder="65">
+        </div>
+        <div class="form-group" id="parent-height-group" style="display:none;">
+            <label>부모님 키 (소아 성장평가용)</label>
+            <div class="birth-row">
+                <input type="number" id="inp-father-height" placeholder="아버지 키 (cm)">
+                <input type="number" id="inp-mother-height" placeholder="어머니 키 (cm)">
+            </div>
         </div>
         <div class="form-group">
             <label>성별</label>
@@ -175,6 +182,15 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
             <label for="consent1">개인정보수집활용 동의 (필수)</label>
         </div>
         <button class="start-btn" onclick="goToStart()">다음</button>
+    </div>
+
+    <div id="phase-growth" style="display:none">
+        <div class="header"><img class="logo-img" src="assets/청춘한의원_로고-01.png" alt="청춘한의원"></div>
+        <div class="start-screen" style="text-align:left;padding:20px 4px;">
+            <h2 style="text-align:center;">우리 아이 성장 확인</h2>
+            <div id="growth-result"></div>
+            <button class="start-btn" onclick="goToStartFromGrowth()">다음</button>
+        </div>
     </div>
 
     <div id="phase-start" style="display:none">
@@ -209,6 +225,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     </div>
 </div>
 
+<script src="growth-data.js"></script>
 <script src="questions.js"></script>
 <script>
 // ===== 구글시트 연동 주소 (Apps Script 배포 후 이 값을 교체하세요) =====
@@ -219,6 +236,9 @@ let selectedGender = null;
 let currentStep = 0;
 let answers = {};
 let patientInfo = {};
+// 만 15세 이하인지 여부 (growth-data.js의 isChildAge()로 계산). questions.js의 술 문항 제외,
+// 부모님 키 입력란 노출, 성장평가 화면 표시 여부에 공용으로 사용합니다.
+let isChildPatient = false;
 
 // id -> 질문 전체 텍스트(카테고리 포함 경로) 매핑 (요약 생성용)
 const QMAP = {};
@@ -269,6 +289,18 @@ function selectGender(el, g) {
     el.classList.add('selected');
 }
 
+// 생년월일 세 칸이 모두 채워질 때마다 호출 - 만 15세 이하면 부모님 키 입력란을 보여줍니다.
+function updateChildFieldsVisibility() {
+    const birthY = document.getElementById('inp-birth-y').value;
+    const birthM = document.getElementById('inp-birth-m').value;
+    const birthD = document.getElementById('inp-birth-d').value;
+    const group = document.getElementById('parent-height-group');
+    if (!birthY || !birthM || !birthD) { isChildPatient = false; group.style.display = 'none'; return; }
+    const birth = `${birthY}-${String(birthM).padStart(2, '0')}-${String(birthD).padStart(2, '0')}`;
+    isChildPatient = isChildAge(birth);
+    group.style.display = isChildPatient ? 'block' : 'none';
+}
+
 function goToStart() {
     const name = document.getElementById('inp-name').value.trim();
     const phone = document.getElementById('inp-phone').value.trim();
@@ -285,8 +317,54 @@ function goToStart() {
     }
     const birth = birthY ? `${birthY}-${String(birthM).padStart(2, '0')}-${String(birthD).padStart(2, '0')}` : '';
     patientInfo = {name, phone, birth_date: birth, height: parseFloat(height) || '', weight: parseFloat(weight) || '', gender: selectedGender};
+
+    let growth = null;
+    if (isChildPatient && birth) {
+        const fatherHeight = document.getElementById('inp-father-height').value;
+        const motherHeight = document.getElementById('inp-mother-height').value;
+        growth = evaluateGrowth({
+            gender: selectedGender, birthDate: birth,
+            heightCm: patientInfo.height, weightKg: patientInfo.weight,
+            fatherHeight, motherHeight
+        });
+    }
+    patientInfo.growth = growth;
+
     document.getElementById('phase-register').style.display = 'none';
+    if (hasGrowthResult(growth)) {
+        document.getElementById('growth-result').innerHTML = renderGrowthResult(growth);
+        document.getElementById('phase-growth').style.display = 'block';
+    } else {
+        document.getElementById('phase-start').style.display = 'block';
+    }
+}
+
+function goToStartFromGrowth() {
+    document.getElementById('phase-growth').style.display = 'none';
     document.getElementById('phase-start').style.display = 'block';
+}
+
+// 소아 성장 평가 결과를 보호자가 보기 편한 카드 형태로 그립니다.
+function renderGrowthResult(g) {
+    let h = `<p style="color:var(--ink-500);font-size:13.5px;margin-bottom:18px;line-height:1.6;">입력하신 정보를 바탕으로 한 참고용 성장 평가입니다. 정확한 진단은 원장님과의 진료를 통해 확인해주세요.</p>`;
+    h += `<div style="background:var(--brand-soft);border-radius:14px;padding:18px;margin-bottom:14px;">`;
+    h += `<div style="font-weight:700;margin-bottom:10px;">만 ${g.ageYears}세 (${g.ageMonths}개월)</div>`;
+    if (g.heightPercentile !== undefined) {
+        h += `<div style="margin-bottom:8px;">📏 키: <b>${g.heightPercentile} 백분위수</b><br><span style="color:var(--ink-500);font-size:13px;">${g.heightDesc}</span></div>`;
+    }
+    if (g.weightPercentile !== undefined) {
+        h += `<div>⚖️ 몸무게: <b>${g.weightPercentile} 백분위수</b><br><span style="color:var(--ink-500);font-size:13px;">${g.weightDesc}</span></div>`;
+    }
+    h += `</div>`;
+    if (g.predictedHeight) {
+        h += `<div style="background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:18px;">`;
+        h += `<div style="font-weight:700;margin-bottom:8px;">예상 성인키 (부모 키 기반 참고 추정치)</div>`;
+        h += `<div style="font-size:24px;font-weight:800;color:var(--brand-1);">${g.predictedHeight.mid}cm</div>`;
+        h += `<div style="color:var(--ink-500);font-size:13px;margin-top:4px;">추정 범위 ${g.predictedHeight.low}~${g.predictedHeight.high}cm</div>`;
+        h += `</div>`;
+    }
+    h += `<p style="color:var(--ink-300);font-size:11.5px;margin-top:14px;line-height:1.6;">※ 2017년 질병관리청·대한소아과학회 소아청소년 성장도표 기준 통계적 추정치입니다. 영양·수면·사춘기 시기 등에 따라 실제 성장은 달라질 수 있습니다.</p>`;
+    return h;
 }
 
 function startQuestionnaire() {
@@ -484,6 +562,12 @@ function submit() {
     document.getElementById('btn-next').disabled = true;
     document.getElementById('btn-next').textContent = '제출 중...';
 
+    // 소아 성장평가 결과는 answers._growth에 담아 원본데이터(JSON)에 함께 저장하고(관리자페이지에서
+    // 카드로 표시), 문진 요약 맨 앞에도 텍스트로 덧붙여 구글시트에서 바로 읽을 수 있게 합니다.
+    const growthText = buildGrowthSummaryText(patientInfo.growth);
+    if (growthText) answers._growth = patientInfo.growth;
+    const summaryText = growthText ? (growthText + '\n' + buildSummary()) : buildSummary();
+
     const payload = {
         name: patientInfo.name,
         phone: patientInfo.phone,
@@ -491,7 +575,7 @@ function submit() {
         height: patientInfo.height,
         weight: patientInfo.weight,
         gender: patientInfo.gender,
-        summary: buildSummary(),
+        summary: summaryText,
         symptoms: buildSymptomText(),
         raw: JSON.stringify(answers)
     };
