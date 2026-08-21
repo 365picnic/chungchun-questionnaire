@@ -335,6 +335,13 @@ function childTagHtml(r) {
   return (r.birthDate && isChildAge(r.birthDate)) ? '<span class="gender-tag child">소아</span>' : '';
 }
 
+// 목록에서 이름 옆에 "(만나이세)"를 붙이기 위한 라벨 (growth-data.js의 ageInYears 사용).
+function ageLabel(r) {
+  if (!r.birthDate) return '';
+  const y = ageInYears(r.birthDate);
+  return (y === null || y === undefined) ? '' : `(${y}세)`;
+}
+
 function genderClass(g) {
   if (!g) return '';
   if (g.indexOf('남') === 0) return 'male';
@@ -425,7 +432,7 @@ function renderList() {
     return `<div class="p-item${i === curIdx ? ' active' : ''}" onclick="${openFn}(${i})">
       <span class="p-num">${num}</span>
       <div class="p-body">
-        <div class="nm">${esc(r.name || '(이름없음)')} ${genderTag}${childTagHtml(r)}</div>
+        <div class="nm">${esc(r.name || '(이름없음)')}${ageLabel(r)} ${genderTag}${childTagHtml(r)}</div>
         <div class="inf">${esc(r.phone || '')}</div>
         <div class="tm">${dtText}</div>
       </div>
