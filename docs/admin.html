@@ -73,6 +73,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .p-item .nm .gender-tag { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--line-soft); color: var(--ink-500); }
 .p-item .nm .gender-tag.male, .patient-card .name .gender-tag.male { background: var(--c-blue-soft); color: var(--c-blue); }
 .p-item .nm .gender-tag.female, .patient-card .name .gender-tag.female { background: var(--c-pink-soft); color: var(--c-pink); }
+.p-item .nm .gender-tag.child, .patient-card .name .gender-tag.child { background: var(--c-teal-soft); color: var(--c-teal); }
 .p-item .inf { font-size: 11.5px; color: var(--ink-500); margin-top: 3px; }
 .p-item .tm { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
 .p-item .p-del { flex-shrink: 0; opacity: 0; transition: opacity .15s; background: none; border: none; color: var(--ink-300); font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
@@ -329,6 +330,11 @@ function formatPhone(v) {
 }
 function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
 
+// 목록/상세에서 성별 태그 옆에 "소아" 표시를 붙일지 판단 (growth-data.js의 isChildAge, 만 15세 이하).
+function childTagHtml(r) {
+  return (r.birthDate && isChildAge(r.birthDate)) ? '<span class="gender-tag child">소아</span>' : '';
+}
+
 function genderClass(g) {
   if (!g) return '';
   if (g.indexOf('남') === 0) return 'male';
@@ -419,7 +425,7 @@ function renderList() {
     return `<div class="p-item${i === curIdx ? ' active' : ''}" onclick="${openFn}(${i})">
       <span class="p-num">${num}</span>
       <div class="p-body">
-        <div class="nm">${esc(r.name || '(이름없음)')} ${genderTag}</div>
+        <div class="nm">${esc(r.name || '(이름없음)')} ${genderTag}${childTagHtml(r)}</div>
         <div class="inf">${esc(r.phone || '')}</div>
         <div class="tm">${dtText}</div>
       </div>
@@ -1129,7 +1135,7 @@ function renderDetail(i) {
 
   let h = '';
   h += `<div class="patient-card">
-    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}</div>
+    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}${childTagHtml(r)}</div>
     <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">키 / 몸무게 <span class="vital-hint">(수정 가능)</span>
@@ -1209,7 +1215,7 @@ function renderDietDetail(i) {
 
   let h = '';
   h += `<div class="patient-card">
-    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}</div>
+    <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}${childTagHtml(r)}</div>
     <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">희망개월수<b>${esc(r.plan || '-')}</b></div>
