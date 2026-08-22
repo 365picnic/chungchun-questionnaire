@@ -291,6 +291,10 @@ let dietRecords = [];
 let selectedDietIdx = null;
 let dietNotes = { memo: '' };
 let editingDietRowNum = null;
+// 다이어트 문진 답변 수정용 (questions-diet.js 의 DIET_Q/visibleDietQ/buildDietSummary가 참조).
+// 한약 문진의 answers와 이름이 겹치지 않도록 별도 변수로 둡니다.
+let dietAnswers = {};
+let hasEditableDietAnswers = false;
 
 // 문진 답변 수정용 (questions.js 의 Q/visibleQ/buildSummary 가 참조하는 전역 변수).
 // 환자를 새로 선택했을 때만 r.raw로 채우고, 그 이후 같은 환자를 다시 그릴 때는
@@ -730,6 +734,61 @@ function editPickText(qId, val) {
   if (val && val.trim()) answers[qId] = val.trim();
   else delete answers[qId];
   renderDetail(selectedIdx);
+}
+
+// ===== 다이어트 문진 답변 수정 (한약 문진의 editPick/editPickText/renderQuestionRow와 같은 방식이지만,
+// DIET_Q에는 sub/emotion 타입이 없어 더 단순합니다. 전역 dietAnswers를 사용합니다.) =====
+function isDietEditSelected(qId, opt, type) {
+  if (type === 'single') return dietAnswers[qId] === opt;
+  return (dietAnswers[qId] || []).includes(opt);
+}
+
+function editDietPick(qId, val, type) {
+  val = val.replace(/\\'/g, "'");
+  if (type === 'single') {
+    if (dietAnswers[qId] === val) delete dietAnswers[qId];
+    else dietAnswers[qId] = val;
+  } else {
+    if (!dietAnswers[qId]) dietAnswers[qId] = [];
+    const i = dietAnswers[qId].indexOf(val);
+    if (i > -1) dietAnswers[qId].splice(i, 1);
+    else dietAnswers[qId].push(val);
+    if (dietAnswers[qId].length === 0) delete dietAnswers[qId];
+  }
+  renderDietDetail(selectedDietIdx);
+}
+
+function editDietPickText(qId, val) {
+  if (val && val.trim()) dietAnswers[qId] = val.trim();
+  else delete dietAnswers[qId];
+  renderDietDetail(selectedDietIdx);
+}
+
+function renderDietQuestionRow(q) {
+  if (q.type === 'text') {
+    const val = dietAnswers[q.id] || '';
+    return `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">` +
+      `<textarea style="width:100%;min-height:60px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13.5px;box-sizing:border-box;" ` +
+      `onchange="editDietPickText('${q.id}', this.value)">${esc(val)}</textarea></div>`;
+  }
+  const inputType = q.type === 'multi' ? 'checkbox' : 'radio';
+  let h = `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">`;
+  q.opts.forEach(o => {
+    const checked = isDietEditSelected(q.id, o, q.type);
+    h += `<label class="edit-opt"><input type="${inputType}" name="edit_diet_${q.id}" ${checked ? 'checked' : ''} onclick="editDietPick('${q.id}','${escJsAttr(o)}','${q.type}')"> ${esc(o)}</label>`;
+  });
+  h += `</div>`;
+  return h;
+}
+
+function buildDietEditableCats() {
+  const cats = [];
+  let cur = null;
+  visibleDietQ().forEach(q => {
+    if (!cur || cur.name !== q.cat) { cur = { name: q.cat, rows: [] }; cats.push(cur); }
+    cur.rows.push(renderDietQuestionRow(q));
+  });
+  return moveCatToFront(cats, '체크리스트');
 }
 
 function renderSubQuestionRow(sq) {
@@ -1221,21 +1280,27 @@ function renderDetail(i) {
 }
 
 // ===== 다이어트문진 상세 (한약 문진과 질문/항목이 완전히 달라 별도 렌더링) =====
-// 다이어트 문진 요약(buildDietSummary)도 한약 문진과 같은 "[카테고리] 질문: 답" 형식이라
-// parseSummary()를 그대로 재사용해 카테고리별 카드로 보여줍니다.
+// r.raw(문진 당시 저장된 답변 JSON)가 있으면 한약 문진처럼 라디오/체크박스로 그려서
+// 체크 안 된 항목도 같이 보여주고 원장님이 바로 고칠 수 있게 합니다. raw가 없거나 손상된
+// 옛 기록은 예전처럼 summary 텍스트(답한 것만 표시)로 읽기 전용 보여줍니다.
 function renderDietDetail(i) {
   selectedDietIdx = i;
   renderList();
   const r = dietRecords[i];
 
+  let editableDietAnswers = null;
+  try { editableDietAnswers = r.raw ? JSON.parse(r.raw) : null; } catch (e) { editableDietAnswers = null; }
+
   // 환자를 새로 열었을 때만 원본 값으로 초기화합니다 (상담메모 작성 중 내용이 지워지지 않도록).
   if (editingDietRowNum !== r.rowNum) {
+    dietAnswers = editableDietAnswers || {};
     let parsedNotes = null;
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
     dietNotes = (parsedNotes && typeof parsedNotes === 'object') ? Object.assign({ memo: '' }, parsedNotes) : { memo: '' };
     editedVitals = { height: r.height || '', weight: r.weight || '', goal: r.goal || '' };
     editingDietRowNum = r.rowNum;
   }
+  hasEditableDietAnswers = !!editableDietAnswers;
 
   let h = '';
   h += `<div class="patient-card">
@@ -1257,16 +1322,25 @@ function renderDietDetail(i) {
     <div id="bmi-body">${renderBMIBody()}</div>
   </div>`;
 
-  const cats = moveCatToFront(parseSummary(r.summary), '체크리스트');
-  h += `<div class="cat-grid">`;
-  cats.forEach(cat => {
-    h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
-    cat.rows.forEach(row => {
-      h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
+  if (hasEditableDietAnswers) {
+    const cats = buildDietEditableCats();
+    h += `<div class="cat-grid">`;
+    cats.forEach(cat => {
+      h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">${cat.rows.join('')}</div></div>`;
     });
-    h += `</div></div>`;
-  });
-  h += `</div>`;
+    h += `</div>`;
+  } else {
+    const cats = moveCatToFront(parseSummary(r.summary), '체크리스트');
+    h += `<div class="cat-grid">`;
+    cats.forEach(cat => {
+      h += `<div class="cat-card"><div class="cat-hdr">${esc(cat.name)}</div><div class="cat-body">`;
+      cat.rows.forEach(row => {
+        h += `<div class="qa-row"><span class="q">${esc(row.q)}</span><br><span class="a">${esc(row.a)}</span></div>`;
+      });
+      h += `</div></div>`;
+    });
+    h += `</div>`;
+  }
 
   h += `<div class="raw-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='block' ? 'none' : 'block'">원본 데이터 보기(백업용)</div>`;
   h += `<div class="raw-box">${esc(r.raw || '')}</div>`;
@@ -1301,6 +1375,10 @@ function saveDietAll(rowNum) {
     weight: editedVitals.weight,
     goal: editedVitals.goal
   };
+  if (hasEditableDietAnswers) {
+    payload.raw = JSON.stringify(dietAnswers);
+    payload.summary = buildDietSummary(dietAnswers);
+  }
   fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
     .then(() => {
       const r = dietRecords[selectedDietIdx];
@@ -1308,6 +1386,7 @@ function saveDietAll(rowNum) {
         r.doctorNotes = payload.notes;
         r.height = payload.height;
         r.weight = payload.weight;
+        if (hasEditableDietAnswers) { r.raw = payload.raw; r.summary = payload.summary; }
         r.goal = payload.goal;
       }
       setSaveStatus('저장되었습니다 (' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ')', 'ok');
