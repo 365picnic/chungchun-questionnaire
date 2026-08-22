@@ -459,7 +459,7 @@ const QC = [
 
 // ----- 출생·수유·발달 (영유아·아동) -----
 {id:"birth_weight",cat:"출생·수유력",title:"태어날 때 몸무게는 어느 정도였나요?",type:"single",
- opts:["정상 체중","저체중(2.5kg 미만)","고체중(4kg 이상)","잘 모른다"],
+ opts:["정상 체중(2.5~4kg)","저체중(2.5kg 미만)","고체중(4kg 이상)","잘 모른다"],
  cond:function(){return childTier!=="청소년"}},
 
 {id:"birth_preterm",cat:"출생·수유력",title:"조산(37주 미만)으로 태어났나요?",type:"single",
