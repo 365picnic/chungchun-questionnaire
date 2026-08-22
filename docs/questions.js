@@ -2,6 +2,11 @@
 // 이 파일 하나만 고치면 문진표와 관리자페이지 양쪽에 그대로 반영됩니다.
 
 const Q = [
+// ===== 과거력·복용약물 (한약 처방 안전성 확인을 위해 가장 먼저 물어봅니다) =====
+{id:"past_history",cat:"과거력",title:"과거에 수술이나 입원, 사고(교통사고 등) 경력이 있나요? 있다면 시기와 함께 간략히 적어주세요.",type:"text"},
+
+{id:"current_medication",cat:"복용약물",title:"현재 복용 중인 약(양약·한약·영양제 포함)이 있나요? 있다면 약 이름을 적어주세요.",type:"text"},
+
 {id:"sleep_main",cat:"잠",title:"잠을",type:"single",
  opts:["잘 자는 편","못 자는 편"],
  sub:{"못 자는 편":[
@@ -172,16 +177,15 @@ const Q = [
  opts:["찬 물을 좋아하는 편","따듯한 물을 좋아하는 편","상관없다"]},
 
 {id:"alcohol_freq",cat:"술",title:"술을 얼마나 자주 마시나요?",type:"single",
- opts:["일주일 3~4번 이상","일주일 2~3회","한달 3~4번 이하","술이 안 맞는 것 같아 잘 안 마신다","안 마신다"],
- cond:function(){return !isChildPatient}},
+ opts:["일주일 3~4번 이상","일주일 2~3회","한달 3~4번 이하","술이 안 맞는 것 같아 잘 안 마신다","안 마신다"]},
 
 {id:"alcohol_effect",cat:"술",title:"술을 조금만 마셔도?",type:"multi",
  opts:["얼굴~전신이 금방 붉어진다","금방 취한다","몸이 불편해진다","숙취가 오래간다","피부에 두드러기나 발진이 잘 생긴다","해당 없음"],
- cond:function(){return !isChildPatient && answers["alcohol_freq"]!=="안 마신다"}},
+ cond:function(){return answers["alcohol_freq"]!=="안 마신다"}},
 
 {id:"liver",cat:"술",title:"해당하는 것이 있나요?",type:"multi",
  opts:["지방간이 있다~예전에 있었다","간수치가 높은편~예전에 높았다","해당 없음"],
- cond:function(){return !isChildPatient && answers["alcohol_freq"]!=="안 마신다"}},
+ cond:function(){return answers["alcohol_freq"]!=="안 마신다"}},
 
 {id:"nausea",cat:"속메스꺼움",title:"비위가 약해서 속이 메슥거릴 때가 많나요?",type:"single",
  opts:["그렇다","아니다"],
@@ -332,13 +336,231 @@ const Q = [
 {id:"symptom_entry",cat:"증상입력",title:"치료가 필요한 부분을 간략하게 적어주세요.",type:"symptom_entry"}
 ];
 
-// 조건부 문항(cond)과 여성 전용 문항은 answers / selectedGender / isChildPatient 전역 변수를 참조합니다.
-// herbal.html, admin.html 양쪽에서 이 스크립트를 불러오기 전에
-// `let answers = {}`, `let selectedGender = null`, `let isChildPatient = false` 를 선언해두어야 합니다.
-// isChildPatient(만 15세 이하)는 growth-data.js의 isChildAge()로 계산합니다 - 소아에게 맞지 않는
-// 술(음주) 관련 문항을 문진에서 제외하기 위한 용도입니다.
+// ===================================================================
+// QC: 소아 전용 문진 (만 15세 이하, isChildPatient가 true일 때 Q 대신 이 배열을 씁니다)
+// 성인용 Q와 완전히 분리된 별도 문항 세트입니다. 성인 문항을 그대로 가져다 쓰지 않고
+// 소아 눈높이로 다시 물었고, growth-data.js의 childAgeTier()가 계산하는 연령대(영유아/아동/청소년)에
+// 따라 일부 문항만 노출되도록 cond에서 childTier를 참조합니다.
+//   영유아: 만 0~6세(미취학)  아동: 만 7~12세(초등)  청소년: 만 13~15세(사춘기)
+// 추위/더위, 소화, 대소변, 잠처럼 한의학 문진의 핵심 항목은 전 연령대 공통으로 반드시 포함합니다.
+// ===================================================================
+const QC = [
 
-function visibleQ() { return Q.filter(q => !q.cond || q.cond()); }
+// ----- 과거력·복용약물 (한약 처방 안전성 확인을 위해 가장 먼저 물어봅니다) -----
+{id:"qc_past_history",cat:"과거력",title:"아이가 과거에 수술이나 입원, 사고(예방접종 이상반응 포함)를 겪은 적이 있나요? 있다면 시기와 함께 간략히 적어주세요.",type:"text"},
+
+{id:"qc_current_medication",cat:"복용약물",title:"아이가 현재 복용 중인 약(양약·한약·영양제 포함)이 있나요? 있다면 약 이름을 적어주세요.",type:"text"},
+
+// ----- 잠 -----
+{id:"qc_sleep_main",cat:"잠",title:"아이가 잠을 잘 자는 편인가요?",type:"single",
+ opts:["잘 자는 편","못 자는 편"],
+ sub:{"못 자는 편":[
+   {id:"qc_sleep_severity",title:"어느 정도 못 자나요?",type:"single",opts:["매우 못 자는 편","어느 정도","약간"]},
+   {id:"qc_sleep_wake",title:"",type:"multi",opts:["잠은 드는데 자다가 자주 깬다","혼자 못 자고 보채거나 안아줘야 잔다","새벽에 일찍 깬다"]}
+ ]}},
+
+{id:"qc_sleep_night",cat:"잠",title:"자다가 울면서 깨거나(야제) 잠꼬대·이갈이가 있나요?",type:"multi",
+ opts:["자다가 울면서 깬다(야제)","잠꼬대를 한다","이갈이를 한다","해당없음"]},
+
+{id:"qc_bedwetting",cat:"잠",title:"밤에 자다가 소변 실수(야뇨)가 있나요?",type:"single",
+ opts:["거의 매일","일주일에 몇번","가끔","없다"],
+ cond:function(){return childTier!=="청소년"}},
+
+{id:"qc_teen_sleep",cat:"잠",title:"공부나 스마트폰 등으로 수면 시간이 부족한 편인가요?",type:"single",
+ opts:["매우 부족한 편","약간 부족한 편","충분한 편"],
+ cond:function(){return childTier==="청소년"}},
+
+// ----- 추위/더위·땀 -----
+{id:"qc_cold_heat",cat:"추위/더위",title:"아이가 추위나 더위를 유난히 타는 편인가요?",type:"multi",
+ opts:["추위를 타지 않는 편","몸이 차서 추위를 타는 편","열이 많아 더위를 타는 편"]},
+
+{id:"qc_hand_foot",cat:"추위/더위",title:"손발이 찬 편인가요?",type:"single",
+ opts:["매우 찬 편","약간 찬 편","보통","열나고 화끈거리는 편"]},
+
+{id:"qc_sweat",cat:"땀",title:"평소 땀이?",type:"single",
+ opts:["아주 많은 편","많은 편","보통","적은 편"],
+ sub:{"아주 많은 편":[
+   {id:"qc_sweat_area",title:"땀이 많은 부위는?",type:"multi",opts:["머리","손발","전신","잠잘 때 특히 많다"]}
+ ]}},
+
+// ----- 소화·식욕 -----
+{id:"qc_digest",cat:"소화",title:"평소 소화가?",type:"single",
+ opts:["잘 되는 편","보통","잘 안되는 편"],
+ sub:{"잘 안되는 편":[
+   {id:"qc_digest_extra",title:"소화가 안되면?",type:"multi",opts:["배가 더부룩하다고 한다","토하거나 게울 때가 있다","트림을 자주 한다","식욕이 같이 떨어진다"]}
+ ]}},
+
+{id:"qc_appetite",cat:"소화",title:"평소 식욕이?",type:"single",
+ opts:["매우 없는 편","없는 편","보통","좋은 편","매우 좋은 편"]},
+
+{id:"qc_picky",cat:"소화",title:"편식이 심한 편인가요?",type:"single",
+ opts:["매우 심한 편","어느 정도","거의 없다"]},
+
+{id:"qc_chewing",cat:"소화",title:"음식을 씹기 싫어하거나 오래 씹지 않고 삼키나요?",type:"single",
+ opts:["그렇다","아니다"]},
+
+{id:"qc_stomachache",cat:"소화",title:"배가(특히 배꼽 주변) 자주 아프다고 하나요?",type:"single",
+ opts:["자주 그렇다","가끔 그렇다","거의 없다"]},
+
+// ----- 대변/소변 -----
+{id:"qc_stool",cat:"대변",title:"평소 대변은?",type:"single",
+ opts:["거의 매일 정상변을 보는 편","변비 경향","설사~무른변 경향"],
+ sub:{"변비 경향":[
+   {id:"qc_stool_const_sev",title:"변비 정도는?",type:"single",opts:["심한 편","어느 정도","약간"]}
+ ],"설사~무른변 경향":[
+   {id:"qc_stool_diarr_freq",title:"빈도는?",type:"single",opts:["거의 매일","일주일 3~4번 정도","한달 3~4번 이하"]}
+ ]}},
+
+{id:"qc_urine",cat:"소변",title:"소변보는 횟수나 색깔에 불편한 점이 있나요?",type:"multi",
+ opts:["너무 자주 본다","너무 적게 본다","색이 진하다","냄새가 심하다","특별히 없다"]},
+
+// ----- 체력 -----
+{id:"qc_stamina",cat:"체력",title:"평소 체력·활동량이?",type:"single",
+ opts:["매우 약한 편(쉽게 지친다)","약한 편","보통","좋은 편","매우 좋은 편(에너지가 넘친다)"]},
+
+// ----- 면역력/호흡기 -----
+{id:"cold_freq_child",cat:"면역력",title:"감기에 걸리는 빈도는?",type:"single",
+ opts:["한달에 한번 이상","두세달에 한번 정도","일년에 몇번 정도","거의 안 걸린다"]},
+
+{id:"otitis_tonsil",cat:"면역력",title:"중이염이나 편도염을 반복해서 앓은 적이 있나요?",type:"multi",
+ opts:["중이염을 자주 앓는다","편도가 자주 붓는다(편도염)","둘 다 해당","해당없음"]},
+
+{id:"absence_freq",cat:"면역력",title:"아파서 어린이집·학교를 자주 결석하나요?",type:"single",
+ opts:["자주 그렇다","가끔 그렇다","거의 없다","해당없음(아직 다니지 않음)"]},
+
+{id:"qc_nose",cat:"코",title:"콧물·코막힘·재채기 등 비염 증상이 있나요?",type:"single",
+ opts:["그렇다","아니다"],
+ sub:{"그렇다":[
+   {id:"qc_nose_trigger",title:"어떨 때 더 심해지나요?",type:"multi",opts:["환절기·계절 바뀔 때","찬바람 쐬면","계절과 상관없이 항상","알레르기 유발물질(먼지,동물털 등)"]},
+   {id:"qc_nose_extra",title:"해당하는 것을 선택해주세요.",type:"multi",opts:["코를 자주 만지거나 비빈다","콧물이 목뒤로 넘어간다(후비루)","눈도 가렵다","해당없음"]}
+ ]}},
+
+{id:"qc_throat",cat:"목",title:"편도가 자주 붓거나 목이 아프다고 하나요?",type:"single",
+ opts:["자주 그렇다","가끔 그렇다","거의 없다"]},
+
+{id:"qc_cough",cat:"기침",title:"가래 낀 기침을 달고 사는 편인가요?",type:"single",
+ opts:["그렇다","아니다"]},
+
+// ----- 피부/눈 -----
+{id:"qc_skin",cat:"피부",title:"평소 피부에 불편한 점이 있나요?",type:"multi",
+ opts:["건조하고 거칠다","아토피 습진이 있다","두드러기가 잘 올라온다","태열기가 남아있다","땀띠가 잘 난다","해당없음"]},
+
+{id:"qc_eye",cat:"눈",title:"눈을 자주 비비거나 충혈되나요? 시력저하가 걱정되나요?",type:"multi",
+ opts:["눈을 자주 비빈다","충혈이 잦다","시력이 나빠지는 것 같다","눈을 찡그리거나 깜빡임이 잦다","특별히 없다"],
+ cond:function(){return childTier!=="영유아"}},
+
+// ----- 두통/성장통 -----
+{id:"qc_headache",cat:"두통",title:"두통을 호소하는 편인가요?",type:"single",
+ opts:["자주 있다","가끔 있다","거의 없다"],
+ cond:function(){return childTier!=="영유아"}},
+
+{id:"growth_pain",cat:"성장통",title:"자다가 다리가 아프다고 하거나 성장통을 호소한 적이 있나요?",type:"single",
+ opts:["자주 있다","가끔 있다","없다"]},
+
+// ----- 출생·수유·발달 (영유아·아동) -----
+{id:"birth_weight",cat:"출생·수유력",title:"태어날 때 몸무게는 어느 정도였나요?",type:"single",
+ opts:["정상 체중","저체중(2.5kg 미만)","고체중(4kg 이상)","잘 모른다"],
+ cond:function(){return childTier!=="청소년"}},
+
+{id:"birth_preterm",cat:"출생·수유력",title:"조산(37주 미만)으로 태어났나요?",type:"single",
+ opts:["예","아니오","잘 모른다"],
+ cond:function(){return childTier!=="청소년"}},
+
+{id:"feeding_type",cat:"출생·수유력",title:"어릴 때 주로 어떤 수유를 했나요?",type:"single",
+ opts:["모유 위주","분유 위주","혼합","잘 모른다/해당없음"],
+ cond:function(){return childTier!=="청소년"}},
+
+{id:"qc_milestone",cat:"발달",title:"또래에 비해 발달(뒤집기·걷기·말하기 등)이 느린 편이었나요?",type:"single",
+ opts:["느린 편이었다","또래와 비슷했다","빠른 편이었다","잘 모르겠다"],
+ cond:function(){return childTier==="영유아"}},
+
+{id:"qc_stranger",cat:"발달",title:"낯가림이 심한 편인가요?",type:"single",
+ opts:["매우 심한 편","어느 정도","거의 없다"],
+ cond:function(){return childTier==="영유아"}},
+
+// ----- 성장·사춘기 -----
+{id:"puberty_menarche",cat:"성장·사춘기",title:"초경을 시작했나요?",type:"single",
+ opts:["시작했다","아직 안했다"],
+ sub:{"시작했다":[
+   {id:"puberty_menarche_when",title:"초경 시작 시기는?",type:"single",opts:["또래보다 빠른 편","또래와 비슷한 편","또래보다 늦은 편","잘 모르겠다"]}
+ ]},
+ cond:function(){return childTier!=="영유아" && selectedGender==="여자"}},
+
+{id:"puberty_voice",cat:"성장·사춘기",title:"변성기(목소리 변화)나 급성장이 시작됐나요?",type:"single",
+ opts:["시작됐다","아직이다"],
+ cond:function(){return childTier!=="영유아" && selectedGender==="남자"}},
+
+// ----- 가족력 -----
+{id:"family_allergy",cat:"가족력",title:"부모님 중에 아래 병력이 있나요?",type:"multi",
+ opts:["비염·알레르기","아토피 피부염","천식","없음"]},
+
+// ----- 환경적응/또래관계 -----
+{id:"child_adapt",cat:"환경적응",title:"어린이집·학교(새로운 환경)에 적응하는 편인가요?",type:"single",
+ opts:["잘 적응하는 편","다소 힘들어하는 편","매우 힘들어하는 편","해당없음(아직 다니지 않음)"]},
+
+{id:"child_peer",cat:"환경적응",title:"또래 친구들과 어울리는 데 어려움이 있나요?",type:"single",
+ opts:["그렇다","아니다","해당없음"],
+ cond:function(){return childTier!=="영유아"}},
+
+// ----- 정서·행동 (연령대별로 다른 문항) -----
+{id:"emo_toddler",cat:"정서·행동",title:"평소 아이의 모습에 해당하는 것을 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
+ cond:function(){return childTier==="영유아"},
+ groups:[
+   {icon:"&#128549;",bg:"#f0f4ff",items:[
+     {id:"toddler_separation",text:"엄마(보호자)와 떨어질 때 유난히 심하게 운다."}
+   ]},
+   {icon:"&#128544;",bg:"#ffeef0",items:[
+     {id:"toddler_tantrum",text:"떼쓰기나 고집이 또래보다 심한 편이다."},
+     {id:"toddler_stubborn",text:"뜻대로 안되면 바닥에 눕거나 물건을 던진다."}
+   ]}
+ ]},
+
+{id:"emo_child",cat:"정서·행동",title:"평소 아이의 모습에 해당하는 것을 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
+ cond:function(){return childTier==="아동"},
+ groups:[
+   {icon:"&#128563;",bg:"#fff4e6",items:[
+     {id:"child_distract",text:"집중을 잘 못하고 산만한 편이다."},
+     {id:"child_impulsive",text:"충동적이고 기다리는 것을 힘들어한다."}
+   ]},
+   {icon:"&#128544;",bg:"#ffeef0",items:[
+     {id:"child_tantrum",text:"짜증이나 떼쓰기가 또래보다 심한 편이다."}
+   ]},
+   {icon:"&#128561;",bg:"#f0f0f8",items:[
+     {id:"child_tic",text:"눈 깜빡임, 헛기침, 어깨 들썩임 같은 틱 증상이 있다."},
+     {id:"child_nail_biting",text:"손톱을 물어뜯거나 머리카락을 뽑는 습관이 있다."}
+   ]}
+ ]},
+
+{id:"emo_teen",cat:"정서·행동",title:"평소 아이의 모습에 해당하는 것을 체크해주세요. 없으면 다음을 누르세요",type:"emotion",
+ cond:function(){return childTier==="청소년"},
+ groups:[
+   {icon:"&#128544;",bg:"#ffeef0",items:[
+     {id:"teen_irritable",text:"짜증이나 예민함이 부쩍 심해졌다."},
+     {id:"teen_mood_swing",text:"기분 기복이 심한 편이다."}
+   ]},
+   {icon:"&#128546;",bg:"#f0f0f8",items:[
+     {id:"teen_anxiety",text:"불안하거나 우울한 기분을 느낄 때가 많다."},
+     {id:"teen_stress_body",text:"시험·학업 스트레스를 받으면 두통이나 배가 아프다."}
+   ]},
+   {icon:"&#128553;",bg:"#fef0f5",items:[
+     {id:"teen_appearance",text:"외모나 체형에 대한 고민이 많다."}
+   ]}
+ ]},
+
+// ----- 증상입력 -----
+{id:"symptom_entry",cat:"증상입력",title:"치료가 필요한 부분을 간략하게 적어주세요.",type:"symptom_entry"}
+];
+
+// 조건부 문항(cond)은 answers / selectedGender / isChildPatient / childTier 전역 변수를 참조합니다.
+// herbal.html, admin.html 양쪽에서 이 스크립트를 불러오기 전에
+// `let answers = {}`, `let selectedGender = null`, `let isChildPatient = false`, `let childTier = null` 를
+// 선언해두어야 합니다. isChildPatient(만 15세 이하)는 growth-data.js의 isChildAge()로, childTier(영유아/
+// 아동/청소년)는 같은 파일의 childAgeTier()로 계산합니다 - 성인은 Q를, 소아는 QC를 사용하도록 나눕니다.
+
+// 환자가 성인인지 소아인지에 따라 실제로 사용할 문항 배열을 고릅니다.
+function activeQ() { return isChildPatient ? QC : Q; }
+
+function visibleQ() { return activeQ().filter(q => !q.cond || q.cond()); }
 
 // 답변을 사람이 읽기 쉬운 텍스트로 정리 (구글시트 "문진 요약" 칸에 저장되는 내용)
 function buildSummary() {

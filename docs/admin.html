@@ -297,9 +297,11 @@ let editingDietRowNum = null;
 // (원장님이 클릭해서 고친 내용이 사라지지 않도록) 이미 채워진 값을 그대로 씁니다.
 let answers = {};
 let selectedGender = null;
-// 만 15세 이하 소아 여부 (growth-data.js의 isChildAge()로 계산). questions.js의 술 문항을
-// 문진 답변 수정 UI에서도 동일하게 숨기기 위해 사용합니다.
+// 만 15세 이하 소아 여부 (growth-data.js의 isChildAge()로 계산). 소아면 questions.js가 문진 답변
+// 수정 UI에서도 Q 대신 QC(소아 전용 문항)를 쓰도록 하기 위해 사용합니다.
 let isChildPatient = false;
+// 소아 연령대(영유아/아동/청소년, growth-data.js의 childAgeTier()) - QC 내 연령대별 문항 노출에 사용.
+let childTier = null;
 let editingRowNum = null;
 // 현재 열린 환자가 실제 문진 답변 수정 UI(라디오/체크박스)를 보여주고 있는지 여부.
 // true일 때만 통합 저장 버튼이 raw/summary도 함께 저장합니다.
@@ -722,6 +724,14 @@ function editToggleEmo(itemId) {
   renderDetail(selectedIdx);
 }
 
+// 과거력/복용약물처럼 자유 텍스트로 답하는 문항(type:"text") 수정용. 키 입력마다 다시 그리면
+// 커서 위치가 튀므로, 다른 필드로 넘어갈 때(onchange)만 저장하고 다시 그립니다.
+function editPickText(qId, val) {
+  if (val && val.trim()) answers[qId] = val.trim();
+  else delete answers[qId];
+  renderDetail(selectedIdx);
+}
+
 function renderSubQuestionRow(sq) {
   const inputType = sq.type === 'multi' ? 'checkbox' : 'radio';
   let h = '';
@@ -736,6 +746,12 @@ function renderSubQuestionRow(sq) {
 }
 
 function renderQuestionRow(q) {
+  if (q.type === 'text') {
+    const val = answers[q.id] || '';
+    return `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">` +
+      `<textarea style="width:100%;min-height:60px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13.5px;box-sizing:border-box;" ` +
+      `onchange="editPickText('${q.id}', this.value)">${esc(val)}</textarea></div>`;
+  }
   if (q.type === 'emotion') {
     let h = `<div class="qa-row"><span class="q">${esc(q.title)}</span></div><div class="edit-opts">`;
     q.groups.forEach(g => g.items.forEach(it => {
@@ -1125,6 +1141,7 @@ function renderDetail(i) {
     answers = editableAnswers || {};
     selectedGender = r.gender || null;
     isChildPatient = isChildAge(r.birthDate);
+    childTier = isChildPatient ? childAgeTier(r.birthDate) : null;
     let parsedNotes = null;
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
     doctorNotes = normalizeDoctorNotes(parsedNotes || seedDoctorNotesFromAnswers());

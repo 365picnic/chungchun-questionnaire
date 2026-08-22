@@ -29,6 +29,18 @@ function isChildAge(birthDateStr, refDate) {
   return y !== null && y <= CHILD_MAX_AGE_YEARS;
 }
 
+// 소아 연령대 구분(영유아/아동/청소년) - questions.js의 소아 전용 문진(QC)에서
+// 연령대별로 문항을 다르게 노출하기 위해 사용합니다.
+//   영유아: 만 0~6세(미취학)   아동: 만 7~12세(초등)   청소년: 만 13~15세(사춘기)
+// 소아가 아니면(또는 생년월일 미입력) null을 반환합니다.
+function childAgeTier(birthDateStr, refDate) {
+  var y = ageInYears(birthDateStr, refDate);
+  if (y === null || y > CHILD_MAX_AGE_YEARS) return null;
+  if (y <= 6) return '영유아';
+  if (y <= 12) return '아동';
+  return '청소년';
+}
+
 // LMS 방법(질병관리청 성장도표 산출 공식)으로 실측치를 Z-score로 변환합니다.
 function lmsZ(x, L, M, S) {
   if (Math.abs(L) < 1e-6) return Math.log(x / M) / S;
