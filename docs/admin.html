@@ -504,48 +504,119 @@ function getBMICategory(bmi) {
   return 6;
 }
 
-function bodySVG(widthScale) {
-  // widthScale 0(매우수척) ~ 1(매우비만) 에 따라 어깨/허리/엉덩이 너비가 커지는
-  // 사람 실루엣(머리/팔/몸통/다리)을 그립니다.
-  const cx = 30;
-  const shoulderW = 13 + widthScale * 7;
-  const waistW = 9 + widthScale * 15;
-  const hipW = waistW * 0.92;
-  const legGap = 3;
-  const shoulderY = 24, waistY = 44, hipY = 52, legBottomY = 76;
-  const legW = (hipW - legGap) / 2;
-  const foot = Math.min(3, legW * 0.55);
-  const armW = 4.5 + widthScale * 3;
-
-  const torso = `
+// 어깨~허리~엉덩이를 잇는 몸통 윤곽선(둥근 사다리꼴) 경로를 만듭니다.
+// 팔다리는 몸통과 분리해서 따로 그리기 때문에, 몸통은 엉덩이 아래를 둥글게 마감합니다.
+function torsoPath(cx, shoulderW, waistW, hipW, shoulderY, waistY, hipY, hipBottomY) {
+  return `
     M ${cx - shoulderW} ${shoulderY}
-    Q ${cx} ${shoulderY - 7} ${cx + shoulderW} ${shoulderY}
-    C ${cx + shoulderW + 3} ${shoulderY + 7}, ${cx + waistW + 2} ${waistY - 10}, ${cx + waistW} ${waistY}
+    Q ${cx} ${shoulderY - 6} ${cx + shoulderW} ${shoulderY}
+    C ${cx + shoulderW + 2} ${shoulderY + 9}, ${cx + waistW + 1} ${waistY - 9}, ${cx + waistW} ${waistY}
     C ${cx + waistW - 1} ${waistY + 5}, ${cx + hipW} ${hipY - 5}, ${cx + hipW} ${hipY}
-    L ${cx + legGap / 2 + legW} ${legBottomY - foot}
-    Q ${cx + legGap / 2 + legW} ${legBottomY}, ${cx + legGap / 2 + legW - foot} ${legBottomY}
-    L ${cx + legGap / 2 + 1} ${legBottomY}
-    L ${cx + legGap / 2} ${hipY + 6}
-    L ${cx - legGap / 2} ${hipY + 6}
-    L ${cx - legGap / 2 - 1} ${legBottomY}
-    L ${cx - legGap / 2 - legW + foot} ${legBottomY}
-    Q ${cx - legGap / 2 - legW} ${legBottomY}, ${cx - legGap / 2 - legW} ${legBottomY - foot}
-    L ${cx - hipW} ${hipY}
+    Q ${cx + hipW * 0.6} ${hipBottomY} ${cx} ${hipBottomY}
+    Q ${cx - hipW * 0.6} ${hipBottomY} ${cx - hipW} ${hipY}
     C ${cx - hipW} ${hipY - 5}, ${cx - waistW + 1} ${waistY + 5}, ${cx - waistW} ${waistY}
-    C ${cx - waistW - 2} ${waistY - 10}, ${cx - shoulderW - 3} ${shoulderY + 7}, ${cx - shoulderW} ${shoulderY}
+    C ${cx - waistW - 1} ${waistY - 9}, ${cx - shoulderW - 2} ${shoulderY + 9}, ${cx - shoulderW} ${shoulderY}
     Z`;
+}
 
-  return `<svg viewBox="0 0 60 80" width="46" height="60">
-    <line x1="${cx - shoulderW + 3}" y1="${shoulderY + 1}" x2="${cx - shoulderW - 1}" y2="${waistY + 2}" stroke="#9fb0c3" stroke-width="${armW + 2}" stroke-linecap="round"/>
-    <line x1="${cx + shoulderW - 3}" y1="${shoulderY + 1}" x2="${cx + shoulderW + 1}" y2="${waistY + 2}" stroke="#9fb0c3" stroke-width="${armW + 2}" stroke-linecap="round"/>
-    <line x1="${cx - shoulderW + 3}" y1="${shoulderY + 1}" x2="${cx - shoulderW - 1}" y2="${waistY + 2}" stroke="#c3d2e3" stroke-width="${armW}" stroke-linecap="round"/>
-    <line x1="${cx + shoulderW - 3}" y1="${shoulderY + 1}" x2="${cx + shoulderW + 1}" y2="${waistY + 2}" stroke="#c3d2e3" stroke-width="${armW}" stroke-linecap="round"/>
-    <path d="${torso}" fill="#c3d2e3" stroke="#9fb0c3" stroke-width="1.2" stroke-linejoin="round"/>
-    <circle cx="${cx}" cy="11" r="8.5" fill="#c3d2e3" stroke="#9fb0c3" stroke-width="1.2"/>
+// 머리/목/몸통/팔다리를 분리해서 그리는 사람 실루엣 (첨부 도안 스타일: 팔은 몸통에서
+// 살짝 떨어져 손이 보이고, 다리도 사이가 벌어져 각각 발이 보입니다).
+// widthScale(0~1)이 커질수록 어깨/허리/엉덩이/팔다리가 굵어져 비만도를 표현합니다.
+function personSVG(o) {
+  const cx = o.cx;
+  const shoulderW = o.shoulderBase + o.ws * o.shoulderGrow;
+  const waistW = o.waistBase + o.ws * o.waistGrow;
+  const hipW = waistW * o.hipRatio;
+  const armW = o.armBase + o.ws * o.armGrow;
+  const legW = o.legBase + o.ws * o.legGrow;
+
+  const torso = torsoPath(cx, shoulderW, waistW, hipW, o.shoulderY, o.waistY, o.hipY, o.hipBottomY);
+
+  const armLx1 = cx - shoulderW + 2, armLy1 = o.shoulderY + 2;
+  const armLx2 = cx - shoulderW - 3, armLy2 = o.waistY + o.armDrop;
+  const armRx1 = cx + shoulderW - 2, armRy1 = o.shoulderY + 2;
+  const armRx2 = cx + shoulderW + 3, armRy2 = o.waistY + o.armDrop;
+
+  const legLx1 = cx - o.legGap / 2 - legW * 0.3, legLy1 = o.hipY + 1;
+  const legLx2 = legLx1 - 1.4, legLy2 = o.legBottomY;
+  const legRx1 = cx + o.legGap / 2 + legW * 0.3, legRy1 = o.hipY + 1;
+  const legRx2 = legRx1 + 1.4, legRy2 = o.legBottomY;
+
+  return `<svg viewBox="0 0 60 ${o.viewH}" width="${o.dispW}" height="${o.dispH}">
+    <line x1="${legLx1}" y1="${legLy1}" x2="${legLx2}" y2="${legLy2}" stroke="${o.strokeC}" stroke-width="${legW + 1.6}" stroke-linecap="round"/>
+    <line x1="${legRx1}" y1="${legRy1}" x2="${legRx2}" y2="${legRy2}" stroke="${o.strokeC}" stroke-width="${legW + 1.6}" stroke-linecap="round"/>
+    <line x1="${legLx1}" y1="${legLy1}" x2="${legLx2}" y2="${legLy2}" stroke="${o.fillC}" stroke-width="${legW}" stroke-linecap="round"/>
+    <line x1="${legRx1}" y1="${legRy1}" x2="${legRx2}" y2="${legRy2}" stroke="${o.fillC}" stroke-width="${legW}" stroke-linecap="round"/>
+    <ellipse cx="${legLx2}" cy="${o.footY}" rx="${legW * 0.6}" ry="2.3" fill="${o.strokeC}"/>
+    <ellipse cx="${legRx2}" cy="${o.footY}" rx="${legW * 0.6}" ry="2.3" fill="${o.strokeC}"/>
+    <line x1="${armLx1}" y1="${armLy1}" x2="${armLx2}" y2="${armLy2}" stroke="${o.strokeC}" stroke-width="${armW + 1.6}" stroke-linecap="round"/>
+    <line x1="${armRx1}" y1="${armRy1}" x2="${armRx2}" y2="${armRy2}" stroke="${o.strokeC}" stroke-width="${armW + 1.6}" stroke-linecap="round"/>
+    <line x1="${armLx1}" y1="${armLy1}" x2="${armLx2}" y2="${armLy2}" stroke="${o.fillC}" stroke-width="${armW}" stroke-linecap="round"/>
+    <line x1="${armRx1}" y1="${armRy1}" x2="${armRx2}" y2="${armRy2}" stroke="${o.fillC}" stroke-width="${armW}" stroke-linecap="round"/>
+    <circle cx="${armLx2}" cy="${armLy2}" r="${armW * 0.6}" fill="${o.strokeC}"/>
+    <circle cx="${armRx2}" cy="${armRy2}" r="${armW * 0.6}" fill="${o.strokeC}"/>
+    <path d="${torso}" fill="${o.fillC}" stroke="${o.strokeC}" stroke-width="1.2" stroke-linejoin="round"/>
+    <rect x="${cx - 3.2}" y="${o.headCy + o.headR - 2}" width="6.4" height="6.5" rx="2.2" fill="${o.fillC}" stroke="${o.strokeC}" stroke-width="1"/>
+    <circle cx="${cx}" cy="${o.headCy}" r="${o.headR}" fill="${o.fillC}" stroke="${o.strokeC}" stroke-width="1.2"/>
   </svg>`;
 }
 
-function renderBMI(bmi) {
+// 성인 남성: 어깨가 넓고 허리 굴곡이 적은 각진 체형.
+function bodyMale(ws) {
+  return personSVG({
+    cx: 30, ws,
+    shoulderY: 20, waistY: 40, hipY: 48, hipBottomY: 54, legBottomY: 82, footY: 84.5,
+    viewH: 88, dispW: 44, dispH: 64,
+    shoulderBase: 15, shoulderGrow: 5,
+    waistBase: 12, waistGrow: 12,
+    hipRatio: 0.96,
+    armBase: 4.5, armGrow: 2.8, armDrop: 8,
+    legBase: 5.5, legGrow: 3.6, legGap: 3.5,
+    headR: 7.6, headCy: 9.5,
+    fillC: '#bcd3f5', strokeC: '#5f8ad6'
+  });
+}
+
+// 성인 여성: 어깨가 좁고 허리가 잘록했다가 엉덩이에서 다시 퍼지는 체형.
+function bodyFemale(ws) {
+  return personSVG({
+    cx: 30, ws,
+    shoulderY: 20, waistY: 39, hipY: 47, hipBottomY: 53, legBottomY: 82, footY: 84.5,
+    viewH: 88, dispW: 44, dispH: 64,
+    shoulderBase: 11, shoulderGrow: 4,
+    waistBase: 7.5, waistGrow: 10,
+    hipRatio: 1.25,
+    armBase: 3.8, armGrow: 2.2, armDrop: 8,
+    legBase: 4.8, legGrow: 3, legGap: 3.5,
+    headR: 7.2, headCy: 9.3,
+    fillC: '#f6c9dd', strokeC: '#c23f86'
+  });
+}
+
+// 소아: 머리 비중이 크고 몸통/팔다리가 짧은 아동 체형 (성별 구분 없이 공용으로 사용).
+function bodyChild(ws) {
+  return personSVG({
+    cx: 30, ws,
+    shoulderY: 25, waistY: 35, hipY: 40, hipBottomY: 45, legBottomY: 72, footY: 74,
+    viewH: 78, dispW: 38, dispH: 57,
+    shoulderBase: 9.5, shoulderGrow: 3.2,
+    waistBase: 9, waistGrow: 6.5,
+    hipRatio: 1.05,
+    armBase: 4, armGrow: 2.2, armDrop: 7,
+    legBase: 5, legGrow: 3, legGap: 3,
+    headR: 10, headCy: 11.5,
+    fillC: '#bdeee6', strokeC: '#0d9488'
+  });
+}
+
+// 소아면 소아 도안, 아니면 성별(genderClass)에 따라 남성/여성 도안을 고릅니다.
+// 성별 정보가 없으면 남성 도안을 기본으로 씁니다.
+function bodySVG(widthScale, gender, isChild) {
+  if (isChild) return bodyChild(widthScale);
+  return genderClass(gender) === 'female' ? bodyFemale(widthScale) : bodyMale(widthScale);
+}
+
+function renderBMI(bmi, gender, isChild) {
   const cats = [
     { label: '매우수척', range: 'BMI 17', w: 0.15 },
     { label: '수척', range: 'BMI 19', w: 0.3 },
@@ -559,7 +630,7 @@ function renderBMI(bmi) {
   return cats.map((c, i) => {
     const act = i === active ? ' active' : '';
     return `<div class="bmi-item${act}">
-      <div class="bmi-circle${act ? ' bmi-circle-active' : ''}">${bodySVG(c.w)}</div>
+      <div class="bmi-circle${act ? ' bmi-circle-active' : ''}">${bodySVG(c.w, gender, isChild)}</div>
       <div class="bmi-label">${c.label}</div>
       <div class="bmi-val">${c.range}</div>
     </div>`;
@@ -576,7 +647,7 @@ function updateVital(field, val) {
 
 function renderBMIBody() {
   const bmi = calcBMI(editedVitals.height, editedVitals.weight);
-  return `<div class="bmi-bar">${renderBMI(bmi)}</div>` +
+  return `<div class="bmi-bar">${renderBMI(bmi, selectedGender, isChildPatient)}</div>` +
     (bmi ? `<div class="bmi-note">BMI ${bmi.toFixed(1)}</div>` : `<div class="bmi-note">키/몸무게 정보가 없어 계산할 수 없습니다.</div>`);
 }
 
@@ -1298,6 +1369,8 @@ function renderDietDetail(i) {
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
     dietNotes = (parsedNotes && typeof parsedNotes === 'object') ? Object.assign({ memo: '' }, parsedNotes) : { memo: '' };
     editedVitals = { height: r.height || '', weight: r.weight || '', goal: r.goal || '' };
+    selectedGender = r.gender || null;
+    isChildPatient = isChildAge(r.birthDate);
     editingDietRowNum = r.rowNum;
   }
   hasEditableDietAnswers = !!editableDietAnswers;
