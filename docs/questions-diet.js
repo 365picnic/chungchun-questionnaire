@@ -136,8 +136,17 @@ const DIET_Q = [
 {id:"alcohol_freq", cat:"음주", title:"술을 얼마나 자주 드세요?", type:"single",
  opts:["거의 안 마신다","주 1회 이하","주 2~3회","주 4회 이상"]},
 
-{id:"alcohol_amount", cat:"음주", title:"한 번 마실 때 어느 정도 드세요?", type:"single",
- opts:["소주 반 병 이하","소주 1병 정도","소주 1~2병","소주 2병 이상"],
+{id:"alcohol_type", cat:"음주", title:"주로 어떤 술을 드세요?", type:"single",
+ opts:["소주","맥주","막걸리","와인","양주·하이볼","여러 가지 섞어 마심"],
+ cond:function(ans){ return ans.alcohol_freq && ans.alcohol_freq !== "거의 안 마신다"; }},
+
+{id:"alcohol_amount", cat:"음주", title:"한 번 마실 때 어느 정도 드세요? (주종과 무관하게, 아래는 대략적인 환산입니다)", type:"single",
+ opts:[
+   "소주 반 병 이하 (맥주 1~2캔 / 와인 2잔)",
+   "소주 1병 정도 (맥주 3~4캔 / 와인 1병)",
+   "소주 1~2병 (맥주 5~8캔)",
+   "소주 2병 이상 (맥주 9캔 이상)"
+ ],
  cond:function(ans){ return ans.alcohol_freq && ans.alcohol_freq !== "거의 안 마신다"; }},
 
 {id:"liver_check", cat:"음주", title:"최근 건강검진에서 간수치 이상이나 지방간 소견을 들은 적이 있나요?", type:"single",
