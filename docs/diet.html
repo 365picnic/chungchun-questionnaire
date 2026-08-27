@@ -58,6 +58,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(51,71,122,0.12); }
 .form-group input::placeholder, .form-group textarea::placeholder { color: var(--ink-300); font-weight: 400; }
 .form-group input[readonly] { background: var(--bg); color: var(--ink-700); cursor: pointer; }
+.goal-preview { margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--brand-2); min-height: 16px; }
 .birth-row { display: flex; gap: 8px; }
 .birth-row select { flex: 1; min-width: 0; padding: 13px 6px; border: 1.5px solid var(--line); border-radius: var(--radius-md); font-size: 15px; background: var(--surface); color: var(--ink-900); }
 .birth-row select:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(109,79,201,0.12); }
@@ -221,11 +222,13 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         </div>
         <div class="form-group">
             <label>몸무게 (kg)</label>
-            <input type="number" id="inp-weight" placeholder="55">
+            <input type="number" id="inp-weight" placeholder="55" oninput="updateGoalPreview()">
         </div>
         <div class="form-group">
-            <label>감량목표 (kg)</label>
-            <input type="number" id="inp-goal" placeholder="10">
+            <label>몇 kg을 빼고 싶으세요?</label>
+            <span class="hint">목표 체중이 아니라, 지금 몸무게에서 <b>빼고 싶은 무게</b>를 kg으로 적어주세요. (예: 10 = 10kg 감량)</span>
+            <input type="number" id="inp-goal" placeholder="예: 10" oninput="updateGoalPreview()">
+            <div class="goal-preview" id="goal-preview"></div>
         </div>
         <div class="consent-row">
             <input type="checkbox" id="consent1" checked>
@@ -383,6 +386,19 @@ function goToVitals() {
     patientInfo.plan = selectedPlan;
     document.getElementById('phase-plan').style.display = 'none';
     document.getElementById('phase-vitals').style.display = 'block';
+}
+
+function updateGoalPreview() {
+    const w = parseFloat(document.getElementById('inp-weight').value);
+    const g = parseFloat(document.getElementById('inp-goal').value);
+    const el = document.getElementById('goal-preview');
+    if (!el) return;
+    if (w > 0 && g > 0 && g < w) {
+        const target = (w - g).toFixed(1).replace(/\.0$/, '');
+        el.textContent = `현재 ${w}kg에서 ${g}kg 감량 → 목표 체중 약 ${target}kg`;
+    } else {
+        el.textContent = '';
+    }
 }
 
 function goToStart() {

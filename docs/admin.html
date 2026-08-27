@@ -643,6 +643,20 @@ function updateVital(field, val) {
   editedVitals[field] = val;
   const el = document.getElementById('bmi-body');
   if (el) el.innerHTML = renderBMIBody();
+  const gt = document.getElementById('goal-target');
+  if (gt) gt.textContent = goalTargetText();
+}
+
+// 다이어트 탭 환자카드에 "감량목표 -> 목표 체중" 을 계산해 보여줍니다.
+// goal(감량목표)은 목표 체중이 아니라 '빼고 싶은 무게'이므로 목표 체중 = 몸무게 - goal.
+function goalTargetText() {
+  const w = parseFloat(editedVitals.weight);
+  const g = parseFloat(editedVitals.goal);
+  if (w > 0 && g > 0 && g < w) {
+    const t = (w - g).toFixed(1).replace(/\.0$/, '');
+    return ` → 목표 체중 약 ${t}kg`;
+  }
+  return '';
 }
 
 function renderBMIBody() {
@@ -1382,10 +1396,10 @@ function renderDietDetail(i) {
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">희망개월수<b>${esc(r.plan || '-')}</b></div>
     <div class="field">주소<b>${esc(r.address || '-')}</b></div>
-    <div class="field">키 / 몸무게 / 감량목표 <span class="vital-hint">(수정 가능)</span>
+    <div class="field">키 / 몸무게 / 감량목표 <span class="vital-hint">(수정 가능 · 감량목표 = 빼고 싶은 무게)</span>
       <b class="vital-edit"><input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.height)}" oninput="updateVital('height', this.value)"> cm /
-      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.weight)}" oninput="updateVital('weight', this.value)"> kg → 목표
-      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.goal)}" oninput="updateVital('goal', this.value)"> kg</b>
+      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.weight)}" oninput="updateVital('weight', this.value)"> kg / 감량
+      <input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.goal)}" oninput="updateVital('goal', this.value)"> kg<span class="vital-hint" id="goal-target">${goalTargetText()}</span></b>
     </div>
     <div class="field">제출일시<b>${r.submittedAt ? new Date(r.submittedAt).toLocaleString('ko-KR') : '-'}</b></div>
   </div>`;
