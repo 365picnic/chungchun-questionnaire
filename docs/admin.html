@@ -855,7 +855,7 @@ function renderDietQuestionRow(q) {
 function buildDietEditableCats() {
   const cats = [];
   let cur = null;
-  visibleDietQ().forEach(q => {
+  visibleDietQ(dietAnswers).forEach(q => {
     if (!cur || cur.name !== q.cat) { cur = { name: q.cat, rows: [] }; cats.push(cur); }
     cur.rows.push(renderDietQuestionRow(q));
   });
