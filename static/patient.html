@@ -546,7 +546,7 @@ function render() {
     h += `<div class="question-title">${q.title}</div>`;
 
     if (q.type === 'text') {
-        h += `<textarea id="text-answer" style="width:100%;height:120px;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;resize:vertical;" placeholder="자유롭게 적어주세요...">${answers[q.id]||''}</textarea>`;
+        h += `<textarea id="text-answer" oninput="autoGrow(this)" style="width:100%;min-height:120px;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;resize:vertical;overflow:hidden;box-sizing:border-box;line-height:1.6;" placeholder="자유롭게 적어주세요...">${answers[q.id]||''}</textarea>`;
     } else if (q.type === 'single') {
         q.opts.forEach(o => {
             const s = isSelected(q.id, o, 'single') ? ' sel' : '';
@@ -583,6 +583,14 @@ function render() {
     document.getElementById('question-area').innerHTML = h;
     document.getElementById('btn-prev').disabled = currentStep === 0;
     document.getElementById('btn-next').textContent = currentStep === total - 1 ? '문진완료' : '다음';
+
+    const ta0 = document.getElementById('text-answer');
+    if (ta0) autoGrow(ta0);
+}
+
+function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
 }
 
 function pick(qId, val, type) {
