@@ -136,6 +136,22 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .bc-form .bc-memo-in input { width: 160px; }
 .bc-add { background: linear-gradient(135deg, var(--c-blue), var(--c-violet)); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .bc-add:hover { box-shadow: var(--shadow-sm); }
+.bc-src { border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12.5px; font-family: inherit; background: var(--surface); }
+.bc-src:focus { outline: none; border-color: var(--c-blue); }
+.bc-table .src-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 7px; }
+.bc-table .src-tag.clinic { background: var(--c-blue-soft); color: var(--c-blue); }
+.bc-table .src-tag.self { background: var(--c-orange-soft); color: var(--c-orange); }
+.bc-caption { font-size: 10.5px; color: var(--ink-300); text-align: center; margin-top: 3px; }
+
+/* 진료 방식(직접 내원 / 전화 비대면) - 원장이 상세 화면에서 표시, 목록에 배지로 노출 */
+.vt-toggle { display: inline-flex; gap: 4px; margin-top: 2px; }
+.vt-btn { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-500); font-size: 11.5px; font-weight: 700; padding: 4px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+.vt-btn:hover { border-color: var(--c-blue); }
+.vt-btn.on { background: var(--c-blue); color: #fff; border-color: var(--c-blue); }
+.vt-btn.on.phone { background: var(--c-orange); border-color: var(--c-orange); }
+.p-item .visit-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; }
+.p-item .visit-tag.clinic { background: var(--c-blue-soft); color: var(--c-blue); }
+.p-item .visit-tag.phone { background: var(--c-orange-soft); color: var(--c-orange); }
 
 /* 형색성정: 성향/면색/붉은기/기타/안진 - 모두 원장님이 진료 중 직접 판단해 표시 (자동 아님) */
 .hss-section { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c-violet); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
@@ -463,11 +479,12 @@ function renderList() {
     const dt = r.submittedAt ? new Date(r.submittedAt) : null;
     const dtText = dt ? dt.toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     const genderTag = r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${r.gender}</span>` : '';
+    const visitTag = isDiet ? visitTagHtml(dietVisitTypeOf(r)) : '';
     const num = src.length - i;
     return `<div class="p-item${i === curIdx ? ' active' : ''}" onclick="${openFn}(${i})">
       <span class="p-num">${num}</span>
       <div class="p-body">
-        <div class="nm">${esc(r.name || '(이름없음)')}${ageLabel(r)} ${genderTag}${childTagHtml(r)}</div>
+        <div class="nm">${esc(r.name || '(이름없음)')}${ageLabel(r)} ${genderTag}${childTagHtml(r)}${visitTag}</div>
         <div class="inf">${esc(r.phone || '')}</div>
         <div class="tm">${dtText}</div>
       </div>
@@ -1419,7 +1436,7 @@ function collectDietPatientMeasurements(r) {
     const ms = (notes && Array.isArray(notes.measurements)) ? notes.measurements : [];
     ms.forEach(function (m) {
       if (!m || !m.d) return;
-      out.push({ d: String(m.d), w: bcNum_(m.w), smm: bcNum_(m.smm), bf: bcNum_(m.bf), memo: m.memo || '' });
+      out.push({ d: String(m.d), w: bcNum_(m.w), smm: bcNum_(m.smm), bf: bcNum_(m.bf), memo: m.memo || '', src: m.src === 'self' ? 'self' : 'clinic' });
     });
   });
   out.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
@@ -1470,13 +1487,16 @@ function renderBodyTrendChart(rows) {
   }
   defs.forEach(function (d) {
     const seg = [];
-    pts.forEach(function (p, i) { if (p[d.key] != null) seg.push([xAt(i), yAt(p[d.key])]); });
+    pts.forEach(function (p, i) { if (p[d.key] != null) seg.push([xAt(i), yAt(p[d.key]), p.src]); });
     if (seg.length >= 2) {
       svg += '<polyline points="' + seg.map(function (s) { return s[0].toFixed(1) + ',' + s[1].toFixed(1); }).join(' ') +
         '" fill="none" stroke="' + d.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
     }
     seg.forEach(function (s) {
-      svg += '<circle cx="' + s[0].toFixed(1) + '" cy="' + s[1].toFixed(1) + '" r="3.2" fill="#fff" stroke="' + d.color + '" stroke-width="2"/>';
+      // 환자 자가측정(전화)은 점선 테두리 + 조금 작은 점으로 구분
+      const isSelf = s[2] === 'self';
+      const dash = isSelf ? ' stroke-dasharray="2.4 1.6"' : '';
+      svg += '<circle cx="' + s[0].toFixed(1) + '" cy="' + s[1].toFixed(1) + '" r="' + (isSelf ? '2.7' : '3.2') + '" fill="#fff" stroke="' + d.color + '" stroke-width="2"' + dash + '/>';
     });
   });
   svg += '</svg>';
@@ -1494,7 +1514,9 @@ function renderBodyTrendChart(rows) {
     const last = withV.length ? withV[withV.length - 1][d.key].toFixed(1) + 'kg' : '-';
     return '<span class="bc-leg"><i style="background:' + d.color + '"></i>' + d.label + ' <b>' + last + '</b> ' + delta + '</span>';
   }).join('');
-  return '<div class="bc-chart">' + svg + '</div><div class="bc-legend">' + legend + '</div>';
+  const hasSelf = pts.some(function (p) { return p.src === 'self'; });
+  const caption = hasSelf ? '<div class="bc-caption">점선 테두리 점 = 환자 자가측정(전화 비대면)</div>' : '';
+  return '<div class="bc-chart">' + svg + '</div><div class="bc-legend">' + legend + '</div>' + caption;
 }
 
 function renderBodyCompSection(r) {
@@ -1507,10 +1529,13 @@ function renderBodyCompSection(r) {
 
   let table;
   if (own.length) {
-    table = '<table class="bc-table"><thead><tr><th>날짜</th><th>체중</th><th>골격근량</th><th>체지방량</th><th>메모</th><th></th></tr></thead><tbody>' +
+    table = '<table class="bc-table"><thead><tr><th>날짜</th><th>출처</th><th>체중</th><th>골격근량</th><th>체지방량</th><th>메모</th><th></th></tr></thead><tbody>' +
       own.map(function (m, i) {
         const cell = function (x) { return (x !== undefined && x !== null && x !== '') ? esc(x) + 'kg' : '-'; };
-        return '<tr><td>' + esc(m.d || '') + '</td><td>' + cell(m.w) + '</td><td>' + cell(m.smm) + '</td><td>' + cell(m.bf) +
+        const srcTag = m.src === 'self'
+          ? '<span class="src-tag self">자가</span>'
+          : '<span class="src-tag clinic">내원</span>';
+        return '<tr><td>' + esc(m.d || '') + '</td><td>' + srcTag + '</td><td>' + cell(m.w) + '</td><td>' + cell(m.smm) + '</td><td>' + cell(m.bf) +
           '</td><td class="bc-memo">' + esc(m.memo || '') + '</td>' +
           '<td><button class="bc-del" title="삭제" onclick="deleteMeasurement(' + r.rowNum + ', ' + i + ')">&#10005;</button></td></tr>';
       }).join('') +
@@ -1520,6 +1545,8 @@ function renderBodyCompSection(r) {
   }
 
   const otherNote = otherCount > 0 ? '<div class="bc-note">이전 방문에서 기록한 ' + otherCount + '건도 위 그래프에 함께 표시됩니다.</div>' : '';
+  // 기본 출처: 진료 방식이 '전화 비대면'이면 자가측정, 아니면 내원 실측
+  const defSrc = dietNotes.visitType === 'phone' ? 'self' : 'clinic';
 
   return '<div class="bmi-section bc-section">' +
     '<h3>체성분 측정 · 변화 추이</h3>' +
@@ -1529,6 +1556,10 @@ function renderBodyCompSection(r) {
     table +
     '<div class="bc-form">' +
       '<label>날짜<input type="date" id="m-date" value="' + today + '"></label>' +
+      '<label>출처<select class="bc-src" id="m-src">' +
+        '<option value="clinic"' + (defSrc === 'clinic' ? ' selected' : '') + '>내원 실측</option>' +
+        '<option value="self"' + (defSrc === 'self' ? ' selected' : '') + '>자가측정(전화)</option>' +
+      '</select></label>' +
       '<label>체중(kg)<input type="number" step="0.1" id="m-weight" value="' + curW + '" placeholder="예: 62.5"></label>' +
       '<label>골격근량(kg)<input type="number" step="0.1" id="m-smm" placeholder="예: 24.1"></label>' +
       '<label>체지방량(kg)<input type="number" step="0.1" id="m-bf" placeholder="예: 18.3"></label>' +
@@ -1546,7 +1577,8 @@ function addMeasurement(rowNum) {
   const memo = document.getElementById('m-memo').value.trim();
   if (!d) { alert('측정 날짜를 선택해주세요.'); return; }
   if (w === '' && smm === '' && bf === '') { alert('체중·골격근량·체지방량 중 하나 이상 입력해주세요.'); return; }
-  const m = { d: d };
+  const srcEl = document.getElementById('m-src');
+  const m = { d: d, src: (srcEl && srcEl.value === 'self') ? 'self' : 'clinic' };
   if (w !== '') m.w = Number(w);
   if (smm !== '') m.smm = Number(smm);
   if (bf !== '') m.bf = Number(bf);
@@ -1562,6 +1594,35 @@ function deleteMeasurement(rowNum, idx) {
   if (!Array.isArray(dietNotes.measurements) || !dietNotes.measurements[idx]) return;
   if (!confirm('이 측정 기록을 삭제할까요?')) return;
   dietNotes.measurements.splice(idx, 1);
+  saveDietAll(rowNum);
+  renderDietDetail(selectedDietIdx);
+}
+
+// ===== 진료 방식(직접 내원 / 전화 비대면) =====
+// 원장님이 상세 화면에서 표시. measurements와 마찬가지로 별도 시트 칸 없이 dietNotes 안에
+// visitType('clinic' | 'phone')으로 저장되어, 목록에도 배지로 표시됩니다.
+function dietVisitTypeOf(r) {
+  if (r.rowNum === editingDietRowNum && dietNotes) return dietNotes.visitType || '';
+  try { const n = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; return (n && n.visitType) || ''; } catch (e) { return ''; }
+}
+
+function visitTagHtml(vt) {
+  if (vt === 'clinic') return '<span class="visit-tag clinic">내원</span>';
+  if (vt === 'phone') return '<span class="visit-tag phone">비대면</span>';
+  return '';
+}
+
+function renderVisitTypeField(rowNum) {
+  const vt = dietNotes.visitType || '';
+  return '<div class="field">진료 방식' +
+    '<b class="vt-toggle">' +
+      '<button type="button" class="vt-btn' + (vt === 'clinic' ? ' on' : '') + '" onclick="setVisitType(\'clinic\',' + rowNum + ')">직접 내원</button>' +
+      '<button type="button" class="vt-btn phone' + (vt === 'phone' ? ' on' : '') + '" onclick="setVisitType(\'phone\',' + rowNum + ')">전화 비대면</button>' +
+    '</b></div>';
+}
+
+function setVisitType(v, rowNum) {
+  dietNotes.visitType = (dietNotes.visitType === v) ? '' : v;
   saveDietAll(rowNum);
   renderDietDetail(selectedDietIdx);
 }
@@ -1598,6 +1659,7 @@ function renderDietDetail(i) {
     <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">희망개월수<b>${esc(r.plan || '-')}</b></div>
+    ${renderVisitTypeField(r.rowNum)}
     <div class="field">주소<b>${esc(r.address || '-')}</b></div>
     <div class="field">키 / 몸무게 / 감량목표 <span class="vital-hint">(수정 가능 · 감량목표 = 빼고 싶은 무게)</span>
       <b class="vital-edit"><input type="number" step="0.1" class="vital-input" value="${esc(editedVitals.height)}" oninput="updateVital('height', this.value)"> cm /
