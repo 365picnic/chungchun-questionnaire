@@ -185,6 +185,12 @@ function handleAiRecommend_(data) {
   }
 
   var patientInfo = data.patientData || '';
+  // 원장이 AI 추천에 추가로 반영시키고 싶은 지침. Apps Script 편집기 좌측 톱니바퀴(프로젝트 설정)
+  // > 스크립트 속성에 PRESCRIPTION_EXTRA_GUIDANCE 라는 이름으로 자유롭게 적어두면 됩니다.
+  // (예: "임산부·수유부에는 마황제 후보에서 제외", "우리 원은 계지탕류를 1차로 우선 검토" 등)
+  // 값을 비워두거나 속성을 안 만들면 아무 영향 없습니다.
+  var extraGuidance = (PropertiesService.getScriptProperties().getProperty('PRESCRIPTION_EXTRA_GUIDANCE') || '').trim();
+
   var systemPrompt = PRESCRIPTION_KNOWLEDGE + '\n\n' +
     '당신은 위 상한금궤방 임상 지식베이스를 참고해 한의사(원장)의 처방 결정을 돕는 보조 도구입니다. ' +
     '진단이나 처방을 확정하는 것이 아니라, 후보를 추려 원장이 빠르게 검토할 수 있도록 돕는 역할입니다. ' +
@@ -198,6 +204,9 @@ function handleAiRecommend_(data) {
     '결정적일 추가 확인 질문도 제안하세요. 추가 확인 질문마다, 그 질문이 왜 필요한지(어떤 후보들을 ' +
     '가르는 데 도움이 되는지) 한 줄로 이유도 함께 적으세요. 근거 없이 추측하지 말고, 정보가 부족하면 ' +
     'fit_percent를 보수적으로 낮게 매기세요. ' +
+    (extraGuidance
+      ? '\n\n[원장이 추가한 지침 — 아래 내용을 반드시 반영하고, 위 지식베이스와 상충하면 아래 지침을 우선하세요]\n' + extraGuidance + '\n\n'
+      : '') +
     '반드시 아래 JSON 형식으로만 응답하고, 다른 설명이나 코드블록 표시(```) 없이 순수 JSON 텍스트만 ' +
     '출력하세요.\n\n' +
     '{"candidates":[{"name":"처방명","fit_percent":82,"matched":["일치하는 근거"],"missing":["불확실하거나 부족한 근거"],"note":"한 줄 설명"}],' +
