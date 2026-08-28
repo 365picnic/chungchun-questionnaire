@@ -113,6 +113,8 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .bc-section h3 { color: var(--c-blue); }
 .bc-section .sub { font-size: 11.5px; color: var(--ink-300); margin-bottom: 12px; }
 .bc-chart { width: 100%; overflow-x: auto; }
+.bc-gridtitle { font-size: 12.5px; font-weight: 800; color: var(--ink-900); margin: 2px 0 8px; }
+.bc-grid svg { border: 1px solid var(--line); border-radius: 8px; }
 .bc-legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 8px 0 4px; font-size: 12px; color: var(--ink-700); }
 .bc-leg { display: inline-flex; align-items: center; gap: 5px; }
 .bc-leg i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
@@ -1417,7 +1419,6 @@ function renderDetail(i) {
 // 그래프는 같은 환자(전화번호 우선, 없으면 이름+생년월일)의 모든 다이어트 문진 행에
 // 쌓인 측정값을 한데 모아 시간순으로 보여줍니다 - 재내원 시 변화가 한눈에 보입니다.
 function bcNum_(v) { const n = parseFloat(v); return isFinite(n) ? n : null; }
-function bcMdLabel_(d) { const p = String(d).split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : d; }
 
 function collectDietPatientMeasurements(r) {
   const phone = (r.phone || '').trim();
@@ -1443,62 +1444,76 @@ function collectDietPatientMeasurements(r) {
   return out;
 }
 
+// InBody "체성분 변화" 표처럼, 지표(체중/골격근량/체지방량)별로 가로 띠를 하나씩 두고
+// 그 안에 값 라벨 + 꺾은선 + 점을 그립니다. x축은 측정 순서대로 균등 간격(맨 아래 측정일 행).
+// 각 띠는 그 지표 자신의 최소~최대로 스케일해서, 변화 폭이 작아도 잘 보이게 합니다.
 function renderBodyTrendChart(rows) {
   const defs = [
-    { key: 'w', label: '체중', color: '#2563eb' },
-    { key: 'smm', label: '골격근량', color: '#0d9488' },
-    { key: 'bf', label: '체지방량', color: '#ea580c' }
+    { key: 'w', label: '체중', color: '#2563eb', soft: '#dbeafe' },
+    { key: 'smm', label: '골격근량', color: '#0d9488', soft: '#d5f0eb' },
+    { key: 'bf', label: '체지방량', color: '#ea580c', soft: '#ffe6d2' }
   ];
   const pts = rows.filter(function (r) { return r.w != null || r.smm != null || r.bf != null; });
   if (pts.length < 2) {
-    return '<div class="bc-empty">측정 기록이 2회 이상 쌓이면 변화 그래프가 표시됩니다.</div>';
+    return '<div class="bc-empty">측정 기록이 2회 이상 쌓이면 누적그래프가 표시됩니다.</div>';
   }
-  const times = pts.map(function (p) { return new Date(p.d + 'T00:00:00').getTime(); });
-  const tMin = Math.min.apply(null, times), tMax = Math.max.apply(null, times);
-  const spanT = tMax - tMin;
-  const W = 640, H = 280, padL = 44, padR = 16, padT = 16, padB = 40;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const xAt = function (i) {
-    if (spanT > 0) return padL + (times[i] - tMin) / spanT * plotW;
-    return padL + (pts.length === 1 ? plotW / 2 : i / (pts.length - 1) * plotW);
-  };
-  let vals = [];
-  defs.forEach(function (d) { pts.forEach(function (p) { if (p[d.key] != null) vals.push(p[d.key]); }); });
-  let yMin = Math.min.apply(null, vals), yMax = Math.max.apply(null, vals);
-  if (yMin === yMax) { yMin -= 1; yMax += 1; }
-  const yPad = (yMax - yMin) * 0.12; yMin -= yPad; yMax += yPad;
-  const yAt = function (v) { return padT + (yMax - v) / (yMax - yMin) * plotH; };
+  const N = pts.length;
+  const labelW = 62;
+  const rowH = 66;
+  const dateH = 34;
+  const padR = 18, padT = 4;
+  const W = Math.max(540, 72 * N + labelW + padR + 24);
+  const H = padT + rowH * defs.length + dateH;
+  const plotL = labelW + 16;
+  const plotR = W - padR;
+  const plotW = plotR - plotL;
+  const xAt = function (i) { return N === 1 ? (plotL + plotW / 2) : (plotL + i / (N - 1) * plotW); };
 
-  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-width:100%;min-width:360px;">';
-  for (let g = 0; g <= 4; g++) {
-    const v = yMin + (yMax - yMin) * g / 4;
-    const y = yAt(v);
-    svg += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" stroke="#e4e6f0" stroke-width="1"/>';
-    svg += '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end" font-size="10" fill="#aeb3c4">' + v.toFixed(1) + '</text>';
-  }
-  const step = Math.max(1, Math.ceil(pts.length / 6));
-  const drawn = {};
-  for (let i = 0; i < pts.length; i += step) {
-    svg += '<text x="' + xAt(i).toFixed(1) + '" y="' + (H - padB + 16) + '" text-anchor="middle" font-size="9.5" fill="#757c92">' + bcMdLabel_(pts[i].d) + '</text>';
-    drawn[i] = true;
-  }
-  if (!drawn[pts.length - 1]) {
-    svg += '<text x="' + xAt(pts.length - 1).toFixed(1) + '" y="' + (H - padB + 16) + '" text-anchor="middle" font-size="9.5" fill="#757c92">' + bcMdLabel_(pts[pts.length - 1].d) + '</text>';
-  }
-  defs.forEach(function (d) {
-    const seg = [];
-    pts.forEach(function (p, i) { if (p[d.key] != null) seg.push([xAt(i), yAt(p[d.key]), p.src]); });
-    if (seg.length >= 2) {
-      svg += '<polyline points="' + seg.map(function (s) { return s[0].toFixed(1) + ',' + s[1].toFixed(1); }).join(' ') +
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;min-width:' + Math.min(W, 660) + 'px;">';
+
+  defs.forEach(function (d, di) {
+    const bandY = padT + di * rowH;
+    const withV = [];
+    pts.forEach(function (p, i) { if (p[d.key] != null) withV.push({ i: i, v: p[d.key], src: p.src }); });
+    svg += '<rect x="0" y="' + bandY + '" width="' + W + '" height="' + rowH + '" fill="' + d.soft + '" opacity="0.55"/>';
+    svg += '<rect x="0" y="' + bandY + '" width="' + labelW + '" height="' + rowH + '" fill="' + d.color + '"/>';
+    svg += '<text x="' + (labelW / 2) + '" y="' + (bandY + rowH / 2 - 2) + '" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">' + d.label + '</text>';
+    svg += '<text x="' + (labelW / 2) + '" y="' + (bandY + rowH / 2 + 12) + '" text-anchor="middle" font-size="9" fill="#fff" opacity="0.85">kg</text>';
+    svg += '<line x1="0" y1="' + (bandY + rowH) + '" x2="' + W + '" y2="' + (bandY + rowH) + '" stroke="#cfd4e0" stroke-width="1"/>';
+    if (withV.length === 0) {
+      svg += '<text x="' + ((plotL + plotR) / 2) + '" y="' + (bandY + rowH / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#9aa1b2">기록 없음</text>';
+      return;
+    }
+    let vmin = Math.min.apply(null, withV.map(function (o) { return o.v; }));
+    let vmax = Math.max.apply(null, withV.map(function (o) { return o.v; }));
+    if (vmin === vmax) { vmin -= 1; vmax += 1; }
+    const innerTop = bandY + 28, innerBot = bandY + rowH - 12;
+    const yAt = function (v) { return innerBot - (v - vmin) / (vmax - vmin) * (innerBot - innerTop); };
+    if (withV.length >= 2) {
+      svg += '<polyline points="' + withV.map(function (o) { return xAt(o.i).toFixed(1) + ',' + yAt(o.v).toFixed(1); }).join(' ') +
         '" fill="none" stroke="' + d.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
     }
-    seg.forEach(function (s) {
-      // 환자 자가측정(전화)은 점선 테두리 + 조금 작은 점으로 구분
-      const isSelf = s[2] === 'self';
+    withV.forEach(function (o) {
+      const x = xAt(o.i), y = yAt(o.v);
+      const isSelf = o.src === 'self';
       const dash = isSelf ? ' stroke-dasharray="2.4 1.6"' : '';
-      svg += '<circle cx="' + s[0].toFixed(1) + '" cy="' + s[1].toFixed(1) + '" r="' + (isSelf ? '2.7' : '3.2') + '" fill="#fff" stroke="' + d.color + '" stroke-width="2"' + dash + '/>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + (bandY + 15) + '" text-anchor="middle" font-size="10.5" font-weight="700" fill="' + d.color + '">' + o.v.toFixed(1) + '</text>';
+      svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (isSelf ? '3' : '3.6') + '" fill="#fff" stroke="' + d.color + '" stroke-width="2"' + dash + '/>';
     });
   });
+
+  const dRowY = padT + rowH * defs.length;
+  svg += '<rect x="0" y="' + dRowY + '" width="' + W + '" height="' + dateH + '" fill="#eef0f6"/>';
+  svg += '<rect x="0" y="' + dRowY + '" width="' + labelW + '" height="' + dateH + '" fill="#3a4256"/>';
+  svg += '<text x="' + (labelW / 2) + '" y="' + (dRowY + dateH / 2 + 4) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">측정일</text>';
+  const dStep = N > 9 ? 2 : 1;
+  pts.forEach(function (p, i) {
+    if (i % dStep !== 0 && i !== N - 1) return;
+    const parts = String(p.d).split('-');
+    const lab = parts.length === 3 ? (parts[0].slice(2) + '.' + parts[1] + '.' + parts[2]) : p.d;
+    svg += '<text x="' + xAt(i).toFixed(1) + '" y="' + (dRowY + dateH / 2 + 4) + '" text-anchor="middle" font-size="9" fill="#4a5064">' + lab + '</text>';
+  });
+
   svg += '</svg>';
 
   const legend = defs.map(function (d) {
@@ -1516,7 +1531,8 @@ function renderBodyTrendChart(rows) {
   }).join('');
   const hasSelf = pts.some(function (p) { return p.src === 'self'; });
   const caption = hasSelf ? '<div class="bc-caption">점선 테두리 점 = 환자 자가측정(전화 비대면)</div>' : '';
-  return '<div class="bc-chart">' + svg + '</div><div class="bc-legend">' + legend + '</div>' + caption;
+  return '<div class="bc-gridtitle">신체변화 누적그래프</div>' +
+    '<div class="bc-chart bc-grid">' + svg + '</div><div class="bc-legend">' + legend + '</div>' + caption;
 }
 
 function renderBodyCompSection(r) {
