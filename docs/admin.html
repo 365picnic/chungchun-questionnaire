@@ -108,6 +108,34 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .bmi-item.active .bmi-val { color: var(--brand-1); font-weight: 600; }
 .bmi-note { font-size: 11.5px; color: var(--ink-300); text-align: center; margin-top: 8px; }
 
+/* 체성분(체중/골격근량/체지방량) 측정 기록 + 변화 추이 그래프 - 다이어트 탭 전용 */
+.bc-section { border-left-color: var(--c-blue); }
+.bc-section h3 { color: var(--c-blue); }
+.bc-section .sub { font-size: 11.5px; color: var(--ink-300); margin-bottom: 12px; }
+.bc-chart { width: 100%; overflow-x: auto; }
+.bc-legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 8px 0 4px; font-size: 12px; color: var(--ink-700); }
+.bc-leg { display: inline-flex; align-items: center; gap: 5px; }
+.bc-leg i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.bc-leg b { color: var(--ink-900); }
+.bc-delta { font-weight: 700; font-size: 11.5px; padding: 1px 6px; border-radius: 8px; }
+.bc-delta.up-good { background: var(--c-teal-soft); color: var(--c-teal); }
+.bc-delta.down-bad { background: var(--danger-soft); color: var(--danger); }
+.bc-empty { text-align: center; color: var(--ink-300); font-size: 12.5px; padding: 24px 0; }
+.bc-note { font-size: 11px; color: var(--ink-500); margin: 6px 0; text-align: center; }
+.bc-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.bc-table th { background: var(--bg); color: var(--ink-500); font-weight: 700; padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--line); }
+.bc-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--line-soft); color: var(--ink-900); }
+.bc-table td.bc-memo { text-align: left; color: var(--ink-500); }
+.bc-del { background: none; border: none; color: var(--ink-300); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 6px; }
+.bc-del:hover { background: var(--danger); color: #fff; }
+.bc-form { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.bc-form label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--ink-500); font-weight: 600; }
+.bc-form input { border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12.5px; font-family: inherit; width: 104px; }
+.bc-form input:focus { outline: none; border-color: var(--c-blue); }
+.bc-form .bc-memo-in input { width: 160px; }
+.bc-add { background: linear-gradient(135deg, var(--c-blue), var(--c-violet)); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.bc-add:hover { box-shadow: var(--shadow-sm); }
+
 /* 형색성정: 성향/면색/붉은기/기타/안진 - 모두 원장님이 진료 중 직접 판단해 표시 (자동 아님) */
 .hss-section { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c-violet); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow-sm); }
 .hss-section h3 { font-size: 13px; color: var(--c-violet); margin-bottom: 4px; font-weight: 700; }
@@ -1364,6 +1392,179 @@ function renderDetail(i) {
     `<div class="two-col"><div class="col-main">${h}</div><div class="col-side">${sideH}</div></div>`;
 }
 
+// ===== 체성분(체중/골격근량/체지방량) 측정 기록 + 변화 추이 =====
+// 원장님이 진료 중 실측한 값을 기록하는 곳. 별도 시트 칸을 만들지 않고, 이미 있는
+// "원장 메모(JSON)" 칸(dietNotes) 안에 measurements 배열로 함께 저장합니다.
+// (구글 Apps Script를 다시 배포하지 않아도 되도록 한 설계입니다.)
+// 그래프는 같은 환자(전화번호 우선, 없으면 이름+생년월일)의 모든 다이어트 문진 행에
+// 쌓인 측정값을 한데 모아 시간순으로 보여줍니다 - 재내원 시 변화가 한눈에 보입니다.
+function bcNum_(v) { const n = parseFloat(v); return isFinite(n) ? n : null; }
+function bcMdLabel_(d) { const p = String(d).split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : d; }
+
+function collectDietPatientMeasurements(r) {
+  const phone = (r.phone || '').trim();
+  const rows = dietRecords.filter(function (x) {
+    if (phone) return (x.phone || '').trim() === phone;
+    return (x.name || '') === (r.name || '') && (x.birthDate || '') === (r.birthDate || '');
+  });
+  const out = [];
+  rows.forEach(function (x) {
+    let notes = null;
+    if (x.rowNum === editingDietRowNum) {
+      notes = dietNotes; // 방금 화면에서 추가/삭제한 (아직 저장 전) 값도 반영
+    } else {
+      try { notes = x.doctorNotes ? JSON.parse(x.doctorNotes) : null; } catch (e) { notes = null; }
+    }
+    const ms = (notes && Array.isArray(notes.measurements)) ? notes.measurements : [];
+    ms.forEach(function (m) {
+      if (!m || !m.d) return;
+      out.push({ d: String(m.d), w: bcNum_(m.w), smm: bcNum_(m.smm), bf: bcNum_(m.bf), memo: m.memo || '' });
+    });
+  });
+  out.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
+  return out;
+}
+
+function renderBodyTrendChart(rows) {
+  const defs = [
+    { key: 'w', label: '체중', color: '#2563eb' },
+    { key: 'smm', label: '골격근량', color: '#0d9488' },
+    { key: 'bf', label: '체지방량', color: '#ea580c' }
+  ];
+  const pts = rows.filter(function (r) { return r.w != null || r.smm != null || r.bf != null; });
+  if (pts.length < 2) {
+    return '<div class="bc-empty">측정 기록이 2회 이상 쌓이면 변화 그래프가 표시됩니다.</div>';
+  }
+  const times = pts.map(function (p) { return new Date(p.d + 'T00:00:00').getTime(); });
+  const tMin = Math.min.apply(null, times), tMax = Math.max.apply(null, times);
+  const spanT = tMax - tMin;
+  const W = 640, H = 280, padL = 44, padR = 16, padT = 16, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const xAt = function (i) {
+    if (spanT > 0) return padL + (times[i] - tMin) / spanT * plotW;
+    return padL + (pts.length === 1 ? plotW / 2 : i / (pts.length - 1) * plotW);
+  };
+  let vals = [];
+  defs.forEach(function (d) { pts.forEach(function (p) { if (p[d.key] != null) vals.push(p[d.key]); }); });
+  let yMin = Math.min.apply(null, vals), yMax = Math.max.apply(null, vals);
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  const yPad = (yMax - yMin) * 0.12; yMin -= yPad; yMax += yPad;
+  const yAt = function (v) { return padT + (yMax - v) / (yMax - yMin) * plotH; };
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-width:100%;min-width:360px;">';
+  for (let g = 0; g <= 4; g++) {
+    const v = yMin + (yMax - yMin) * g / 4;
+    const y = yAt(v);
+    svg += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" stroke="#e4e6f0" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end" font-size="10" fill="#aeb3c4">' + v.toFixed(1) + '</text>';
+  }
+  const step = Math.max(1, Math.ceil(pts.length / 6));
+  const drawn = {};
+  for (let i = 0; i < pts.length; i += step) {
+    svg += '<text x="' + xAt(i).toFixed(1) + '" y="' + (H - padB + 16) + '" text-anchor="middle" font-size="9.5" fill="#757c92">' + bcMdLabel_(pts[i].d) + '</text>';
+    drawn[i] = true;
+  }
+  if (!drawn[pts.length - 1]) {
+    svg += '<text x="' + xAt(pts.length - 1).toFixed(1) + '" y="' + (H - padB + 16) + '" text-anchor="middle" font-size="9.5" fill="#757c92">' + bcMdLabel_(pts[pts.length - 1].d) + '</text>';
+  }
+  defs.forEach(function (d) {
+    const seg = [];
+    pts.forEach(function (p, i) { if (p[d.key] != null) seg.push([xAt(i), yAt(p[d.key])]); });
+    if (seg.length >= 2) {
+      svg += '<polyline points="' + seg.map(function (s) { return s[0].toFixed(1) + ',' + s[1].toFixed(1); }).join(' ') +
+        '" fill="none" stroke="' + d.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    seg.forEach(function (s) {
+      svg += '<circle cx="' + s[0].toFixed(1) + '" cy="' + s[1].toFixed(1) + '" r="3.2" fill="#fff" stroke="' + d.color + '" stroke-width="2"/>';
+    });
+  });
+  svg += '</svg>';
+
+  const legend = defs.map(function (d) {
+    const withV = pts.filter(function (p) { return p[d.key] != null; });
+    let delta = '';
+    if (withV.length >= 2) {
+      const diff = withV[withV.length - 1][d.key] - withV[0][d.key];
+      const sign = diff > 0 ? '+' : '';
+      // 골격근량은 늘어야 좋고(초록), 체중·체지방량은 줄어야 좋다(줄면 초록, 늘면 빨강)
+      const good = (d.key === 'smm') ? (diff >= 0) : (diff <= 0);
+      delta = '<span class="bc-delta ' + (good ? 'up-good' : 'down-bad') + '">' + sign + diff.toFixed(1) + 'kg</span>';
+    }
+    const last = withV.length ? withV[withV.length - 1][d.key].toFixed(1) + 'kg' : '-';
+    return '<span class="bc-leg"><i style="background:' + d.color + '"></i>' + d.label + ' <b>' + last + '</b> ' + delta + '</span>';
+  }).join('');
+  return '<div class="bc-chart">' + svg + '</div><div class="bc-legend">' + legend + '</div>';
+}
+
+function renderBodyCompSection(r) {
+  const rows = collectDietPatientMeasurements(r);
+  const own = Array.isArray(dietNotes.measurements) ? dietNotes.measurements : [];
+  const otherCount = rows.length - own.length;
+  const _t = new Date();
+  const today = _t.getFullYear() + '-' + String(_t.getMonth() + 1).padStart(2, '0') + '-' + String(_t.getDate()).padStart(2, '0');
+  const curW = (editedVitals.weight !== undefined && editedVitals.weight !== null && editedVitals.weight !== '') ? esc(editedVitals.weight) : '';
+
+  let table;
+  if (own.length) {
+    table = '<table class="bc-table"><thead><tr><th>날짜</th><th>체중</th><th>골격근량</th><th>체지방량</th><th>메모</th><th></th></tr></thead><tbody>' +
+      own.map(function (m, i) {
+        const cell = function (x) { return (x !== undefined && x !== null && x !== '') ? esc(x) + 'kg' : '-'; };
+        return '<tr><td>' + esc(m.d || '') + '</td><td>' + cell(m.w) + '</td><td>' + cell(m.smm) + '</td><td>' + cell(m.bf) +
+          '</td><td class="bc-memo">' + esc(m.memo || '') + '</td>' +
+          '<td><button class="bc-del" title="삭제" onclick="deleteMeasurement(' + r.rowNum + ', ' + i + ')">&#10005;</button></td></tr>';
+      }).join('') +
+      '</tbody></table>';
+  } else {
+    table = '<div class="bc-empty">아직 이 환자에 대해 기록한 체성분 측정값이 없습니다.</div>';
+  }
+
+  const otherNote = otherCount > 0 ? '<div class="bc-note">이전 방문에서 기록한 ' + otherCount + '건도 위 그래프에 함께 표시됩니다.</div>' : '';
+
+  return '<div class="bmi-section bc-section">' +
+    '<h3>체성분 측정 · 변화 추이</h3>' +
+    '<div class="sub">진료 중 실측한 체중·골격근량·체지방량(kg)을 기록하면, 다시 내원했을 때 변화가 그래프로 표시됩니다. 저장 버튼을 따로 누르지 않아도 추가·삭제 시 자동 저장됩니다.</div>' +
+    renderBodyTrendChart(rows) +
+    otherNote +
+    table +
+    '<div class="bc-form">' +
+      '<label>날짜<input type="date" id="m-date" value="' + today + '"></label>' +
+      '<label>체중(kg)<input type="number" step="0.1" id="m-weight" value="' + curW + '" placeholder="예: 62.5"></label>' +
+      '<label>골격근량(kg)<input type="number" step="0.1" id="m-smm" placeholder="예: 24.1"></label>' +
+      '<label>체지방량(kg)<input type="number" step="0.1" id="m-bf" placeholder="예: 18.3"></label>' +
+      '<label class="bc-memo-in">메모<input type="text" id="m-memo" placeholder="선택 입력 (예: 3주차)"></label>' +
+      '<button class="bc-add" onclick="addMeasurement(' + r.rowNum + ')">&#43; 측정 기록 추가</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function addMeasurement(rowNum) {
+  const d = (document.getElementById('m-date').value || '').trim();
+  const w = document.getElementById('m-weight').value.trim();
+  const smm = document.getElementById('m-smm').value.trim();
+  const bf = document.getElementById('m-bf').value.trim();
+  const memo = document.getElementById('m-memo').value.trim();
+  if (!d) { alert('측정 날짜를 선택해주세요.'); return; }
+  if (w === '' && smm === '' && bf === '') { alert('체중·골격근량·체지방량 중 하나 이상 입력해주세요.'); return; }
+  const m = { d: d };
+  if (w !== '') m.w = Number(w);
+  if (smm !== '') m.smm = Number(smm);
+  if (bf !== '') m.bf = Number(bf);
+  if (memo) m.memo = memo;
+  if (!Array.isArray(dietNotes.measurements)) dietNotes.measurements = [];
+  dietNotes.measurements.push(m);
+  dietNotes.measurements.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
+  saveDietAll(rowNum);
+  renderDietDetail(selectedDietIdx);
+}
+
+function deleteMeasurement(rowNum, idx) {
+  if (!Array.isArray(dietNotes.measurements) || !dietNotes.measurements[idx]) return;
+  if (!confirm('이 측정 기록을 삭제할까요?')) return;
+  dietNotes.measurements.splice(idx, 1);
+  saveDietAll(rowNum);
+  renderDietDetail(selectedDietIdx);
+}
+
 // ===== 다이어트문진 상세 (한약 문진과 질문/항목이 완전히 달라 별도 렌더링) =====
 // r.raw(문진 당시 저장된 답변 JSON)가 있으면 한약 문진처럼 라디오/체크박스로 그려서
 // 체크 안 된 항목도 같이 보여주고 원장님이 바로 고칠 수 있게 합니다. raw가 없거나 손상된
@@ -1382,6 +1583,7 @@ function renderDietDetail(i) {
     let parsedNotes = null;
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
     dietNotes = (parsedNotes && typeof parsedNotes === 'object') ? Object.assign({ memo: '' }, parsedNotes) : { memo: '' };
+    if (!Array.isArray(dietNotes.measurements)) dietNotes.measurements = [];
     editedVitals = { height: r.height || '', weight: r.weight || '', goal: r.goal || '' };
     selectedGender = r.gender || null;
     isChildPatient = isChildAge(r.birthDate);
@@ -1408,6 +1610,8 @@ function renderDietDetail(i) {
     <h3>체형 분석 (BMI 자동 계산)</h3>
     <div id="bmi-body">${renderBMIBody()}</div>
   </div>`;
+
+  h += renderBodyCompSection(r);
 
   if (hasEditableDietAnswers) {
     const cats = buildDietEditableCats();
