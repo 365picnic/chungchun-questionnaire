@@ -1454,8 +1454,8 @@ function renderBodyTrendChart(rows) {
     { key: 'bf', label: '체지방량', color: '#ea580c', soft: '#ffe6d2' }
   ];
   const pts = rows.filter(function (r) { return r.w != null || r.smm != null || r.bf != null; });
-  if (pts.length < 2) {
-    return '<div class="bc-empty">측정 기록이 2회 이상 쌓이면 누적그래프가 표시됩니다.</div>';
+  if (pts.length < 1) {
+    return '<div class="bc-empty">측정 기록을 추가하면 누적그래프가 표시됩니다.</div>';
   }
   const N = pts.length;
   const labelW = 62;
