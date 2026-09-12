@@ -197,6 +197,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .side-box.memo { border-top-color: var(--c-teal); }
 .side-box.ai { border-top-color: var(--c-violet); }
 .side-box.presc { border-top-color: var(--c-pink); }
+.side-box.ship { border-top-color: var(--c-blue); }
 .side-box-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .side-box-hdr h3 { font-size: 13px; color: var(--ink-900); font-weight: 700; }
 .side-btn { background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); color: #fff; border: none; padding: 5px 12px; border-radius: var(--radius-sm); font-size: 11.5px; font-weight: 700; cursor: pointer; transition: box-shadow .15s; }
@@ -230,6 +231,65 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ai-questions ul { padding-left: 18px; }
 .ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 8px; line-height: 1.5; }
 .ai-q-reason { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
+
+/* 약 발송 기록 / 전화 예정일 - 택배로 나간 약과, 그 약 복용 10일쯤 후 상태 확인 전화 예정일을 관리 */
+.ship-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ship-add input[type="date"] { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 8px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
+.ship-add input[type="text"] { flex: 1; min-width: 90px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
+.ship-add input:focus { outline: none; border-color: var(--brand-2); }
+.ship-add button { flex-shrink: 0; }
+.ship-list { display: flex; flex-direction: column; gap: 8px; }
+.ship-row { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 9px 11px; }
+.ship-row.done { opacity: .55; }
+.ship-row.overdue { border-color: var(--danger); background: var(--danger-soft); }
+.ship-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ship-date { font-size: 12.5px; font-weight: 700; color: var(--ink-900); }
+.ship-memo { font-size: 11.5px; color: var(--ink-500); }
+.ship-sub { font-size: 11.5px; color: var(--ink-500); margin-top: 4px; }
+.ship-sub b { color: var(--c-orange); }
+.ship-actions { display: flex; gap: 6px; margin-top: 7px; }
+.ship-btn { background: var(--brand-soft); color: var(--brand-1); border: none; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.ship-btn.on { background: var(--success); color: #fff; }
+.ship-del { background: none; border: none; color: var(--ink-300); font-size: 11px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.ship-del:hover { background: var(--danger); color: #fff; }
+.ship-empty { font-size: 12px; color: var(--ink-300); text-align: center; padding: 10px 0; }
+
+/* 발송·전화 달력 (모달) - 한약/다이어트 환자 전체를 아울러 언제 약이 나갔고 언제 전화할지 한눈에 봄 */
+.cal-btn-wrap { position: relative; display: inline-flex; }
+.cal-badge-dot { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
+.cal-overlay { display: none; position: fixed; inset: 0; background: rgba(20, 22, 40, 0.45); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.cal-overlay.open { display: flex; }
+.cal-card { background: var(--surface); border-radius: var(--radius-lg); width: min(920px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); padding: 22px 26px; }
+.cal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-hdr h2 { font-size: 16px; font-weight: 800; }
+.cal-nav { display: flex; gap: 6px; align-items: center; }
+.cal-nav button { background: var(--brand-soft); color: var(--brand-1); border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.cal-close { background: none; border: none; font-size: 20px; color: var(--ink-300); cursor: pointer; line-height: 1; padding: 4px; }
+.cal-sub { font-size: 11.5px; color: var(--ink-300); margin-bottom: 14px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-dow { text-align: center; font-size: 11.5px; font-weight: 700; color: var(--ink-500); padding-bottom: 4px; }
+.cal-cell { min-height: 68px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; font-size: 10.5px; cursor: pointer; background: var(--surface); display: flex; flex-direction: column; gap: 3px; transition: border-color .1s, background .1s; }
+.cal-cell:hover { border-color: var(--brand-2); }
+.cal-cell.other-month { opacity: .35; cursor: default; }
+.cal-cell.today .cal-daynum { color: var(--brand-2); }
+.cal-cell.today { border-color: var(--brand-2); }
+.cal-cell.selected { background: var(--brand-soft); border-color: var(--brand-2); }
+.cal-cell.overdue { border-color: var(--danger); }
+.cal-daynum { font-weight: 700; color: var(--ink-900); }
+.cal-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 1px 5px; display: inline-block; width: fit-content; }
+.cal-badge.ship { background: var(--c-blue-soft); color: var(--c-blue); }
+.cal-badge.call { background: var(--c-orange-soft); color: var(--c-orange); }
+.cal-badge.call.done { background: var(--line-soft); color: var(--ink-300); }
+.cal-detail { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.cal-detail h3 { font-size: 13px; margin-bottom: 10px; }
+.cal-event { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 8px; font-size: 12.5px; }
+.cal-ev-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 8px; margin-right: 6px; white-space: nowrap; }
+.cal-ev-tag.ship { background: var(--c-blue-soft); color: var(--c-blue); }
+.cal-ev-tag.call { background: var(--c-orange-soft); color: var(--c-orange); }
+.cal-ev-tag.call.done { background: var(--line-soft); color: var(--ink-300); }
+.cal-event-sub { color: var(--ink-500); margin-top: 3px; font-size: 11.5px; }
+.cal-event button { flex-shrink: 0; background: var(--brand-soft); color: var(--brand-1); border: none; padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.cal-empty { color: var(--ink-300); font-size: 12.5px; text-align: center; padding: 18px 0; }
 
 .cc-card { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; }
 .cc-card:last-child { margin-bottom: 0; }
@@ -318,6 +378,14 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
   .patient-card .name { font-size: 18px; }
   .patient-card .copy-btn { margin-left: 0; }
   .detail { font-size: 14px; }
+
+  .cal-card { padding: 16px; max-height: 94vh; }
+  .cal-hdr h2 { font-size: 14.5px; }
+  .cal-grid { gap: 4px; }
+  .cal-cell { min-height: 44px; padding: 4px; font-size: 9px; }
+  .cal-daynum { font-size: 10.5px; }
+  .cal-event { flex-direction: column; align-items: flex-start; }
+  .cal-event button { width: 100%; }
 }
 </style>
 </head>
@@ -328,6 +396,10 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     <div class="brand"><img class="brand-logo" src="assets/청춘한의원_로고-01.png" alt="청춘한의원"> <span>문진 관리</span></div>
     <div class="right">
       <span id="last-updated"></span>
+      <span class="cal-btn-wrap">
+        <button onclick="openCalendar()">📅 발송·전화 달력</button>
+        <span class="cal-badge-dot" id="cal-badge-dot" style="display:none;">0</span>
+      </span>
       <button onclick="refreshAll()">새로고침</button>
     </div>
   </div>
@@ -345,6 +417,27 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     </div>
     <div class="detail" id="detail">
       <div class="detail-empty">왼쪽 목록에서 환자를 선택해주세요.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 약 발송·전화 예정 달력: 한약/다이어트 환자 전체를 통틀어 언제 약이 나갔고 언제 전화할지 모아서 보여줍니다. -->
+<div class="cal-overlay" id="calendar-modal">
+  <div class="cal-card">
+    <div class="cal-hdr">
+      <h2 id="cal-title"></h2>
+      <div class="cal-nav">
+        <button onclick="calPrevMonth()">‹ 이전달</button>
+        <button onclick="calToday()">오늘</button>
+        <button onclick="calNextMonth()">다음달 ›</button>
+        <button class="cal-close" onclick="closeCalendar()">&#10005;</button>
+      </div>
+    </div>
+    <div class="cal-sub">파란 배지 = 약 발송일 · 주황 배지 = 전화 예정일(복용 10일쯤 후, 택배 배송일 감안 추정치). 날짜를 클릭하면 아래에 환자 목록이 보입니다.</div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-detail">
+      <h3 id="cal-detail-date"></h3>
+      <div id="cal-detail-body"></div>
     </div>
   </div>
 </div>
@@ -396,13 +489,56 @@ let editedVitals = { height: '', weight: '', goal: '' };
 
 // 주증상(CC)/진료메모/처방메모 - 원장님이 진료 중 직접 채워 넣는 항목.
 // editingRowNum이 바뀔 때(환자를 새로 열 때)만 초기화합니다.
-let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
+let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {}, shipments: [] };
 
 // AI 처방 추천 결과(마지막으로 받은 것) - "근거 보기"/"처방메모에 담기" 버튼에서 참조합니다.
 let lastAiResult = null;
 
+// 발송·전화 달력 모달의 현재 표시 연/월(0=1월)과 선택된 날짜('YYYY-MM-DD').
+let calYear = null;
+let calMonth = null;
+let calSelectedDate = null;
+
 loadData();
 loadDietData();
+
+// ===== 날짜 계산 유틸: 약 발송일 → 택배 도착 예상일 → 전화 예정일(복용 10일쯤 후) =====
+// 생년월일과 같은 이유로, Date 객체를 시각(시/분/초, 시간대)까지 다루지 않고
+// "YYYY-MM-DD" 문자열과 로컬 자정 기준 Date만 오가며 계산해 하루가 밀리는 문제를 피합니다.
+function parseYMD(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+function toYMD(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function isSunday(d) { return d.getDay() === 0; }
+// 택배는 보통 일요일에 배송이 없어, 일요일에 걸리면 하루 더 밀어 다음날(월요일)로 봅니다.
+function skipSunday(d) { return isSunday(d) ? addDays(d, 1) : d; }
+function weekdayLabel(d) { return ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]; }
+function fmtMD(d) { return d ? (d.getMonth() + 1) + '/' + d.getDate() + '(' + weekdayLabel(d) + ')' : '-'; }
+function fmtRange(min, max) {
+  if (!min) return '-';
+  return toYMD(min) === toYMD(max) ? fmtMD(min) : fmtMD(min) + '~' + fmtMD(max);
+}
+// 오늘 처방(발송)하면 보통 내일이나 모레쯤 도착 - 주말(일요일)이 끼면 하루 정도 더 늘어난다는
+// 원장님 설명을 그대로 규칙화: 발송일+1일을 최소 도착일, +1일을 더한 값을 최대 도착일로 보되
+// 각각 일요일에 걸리면 월요일로 밀어줍니다.
+function estimateArrival(shipDateStr) {
+  const ship = parseYMD(shipDateStr);
+  if (!ship) return null;
+  const min = skipSunday(addDays(ship, 1));
+  const max = skipSunday(addDays(min, 1));
+  return { min: min, max: max };
+}
+// 전화 예정일 = 도착(복용 시작) 예상일 + 10일. 병원이 쉬는 일요일에 걸리면 월요일로 밀어줍니다.
+function estimateCallDate(shipDateStr) {
+  const arrival = estimateArrival(shipDateStr);
+  if (!arrival) return null;
+  return { min: skipSunday(addDays(arrival.min, 10)), max: skipSunday(addDays(arrival.max, 10)) };
+}
 
 // 구글시트가 "01090261075" 같은 전화번호를 숫자로 자동 인식해서 맨 앞 0이 사라지는 경우가 있어
 // (이때 r.phone은 문자열이 아니라 숫자가 되어 .includes() 검색도 깨집니다), 불러온 직후 복구합니다.
@@ -487,6 +623,7 @@ async function loadDietData() {
         if (selectedDietIdx !== null) renderDietDetail(selectedDietIdx);
       }
       updateTimestamp();
+      updateCalendarBadge();
     }
   } catch (e) { /* 조용히 실패 - 다음 새로고침에서 재시도 */ }
 }
@@ -504,6 +641,7 @@ async function loadData() {
         if (selectedIdx !== null) renderDetail(selectedIdx);
       }
       updateTimestamp();
+      updateCalendarBadge();
     } else if (statusEl) {
       statusEl.textContent = '서버 응답에 문제가 있습니다.';
     }
@@ -1135,7 +1273,7 @@ function seedDoctorNotesFromAnswers() {
         better: ''
       }))
     : [{ cc: '', os: '', symptom: '', worse: '', better: '' }];
-  return { cc, memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {} };
+  return { cc, memo: '', prescription: '', tendency: null, myunsaek: null, bulgeun: null, gita: [], anjin: {}, shipments: [] };
 }
 
 // 예전 버전에서 저장된 doctorNotes(주증상/메모만 있던 시절)를 열어도 형색성정 항목이
@@ -1149,6 +1287,7 @@ function normalizeDoctorNotes(n) {
   if (n.bulgeun === undefined) n.bulgeun = null;
   if (!Array.isArray(n.gita)) n.gita = [];
   if (!n.anjin || typeof n.anjin !== 'object') n.anjin = {};
+  if (!Array.isArray(n.shipments)) n.shipments = [];
   return n;
 }
 
@@ -1373,6 +1512,7 @@ function renderSidePanel(rowNum) {
     <div class="side-box-hdr"><h3>💊 처방메모</h3><button class="side-btn ghost" onclick="toggleBig('memo-presc', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="memo-presc" oninput="doctorNotes.prescription=this.value" placeholder="처방 내용을 적어주세요...">${esc(doctorNotes.prescription || '')}</textarea>
   </div>`;
+  h += renderShipmentBox(rowNum, false);
   h += `<div class="save-bar">
     <button onclick="saveAll(${rowNum})">💾 저장</button>
     <span class="save-status"></span>
@@ -1680,6 +1820,241 @@ function deleteMeasurement(rowNum, idx) {
   renderDietDetail(selectedDietIdx);
 }
 
+// ===== 약 발송 기록 / 전화 예정일 =====
+// 한약을 택배로 보낼 때마다(보통 2제 이상을 한 번에 다 주지 않고, 1제씩 나눠 보내며 그 사이에
+// 전화로 경과를 확인) 발송일을 기록해두면, 도착 예상일과 다음 전화 예정일(복용 10일쯤 후)을
+// 자동으로 계산해 보여줍니다. 한약문진(doctorNotes)/다이어트문진(dietNotes) 양쪽에서 공용으로 씁니다.
+function shipmentNotesOf(isDiet) { return isDiet ? dietNotes : doctorNotes; }
+
+function addShipment(rowNum, isDiet) {
+  const idPrefix = isDiet ? 'diet-' : '';
+  const dateEl = document.getElementById(idPrefix + 'ship-date');
+  const memoEl = document.getElementById(idPrefix + 'ship-memo');
+  const d = (dateEl.value || '').trim();
+  if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
+  const notes = shipmentNotesOf(isDiet);
+  if (!Array.isArray(notes.shipments)) notes.shipments = [];
+  notes.shipments.push({ id: Date.now(), date: d, memo: (memoEl.value || '').trim(), called: false });
+  if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
+  else { saveAll(rowNum); renderDetail(selectedIdx); }
+}
+
+function toggleShipmentCalled(rowNum, id, isDiet) {
+  const notes = shipmentNotesOf(isDiet);
+  const s = (notes.shipments || []).find(function (x) { return x.id === id; });
+  if (!s) return;
+  s.called = !s.called;
+  if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
+  else { saveAll(rowNum); renderDetail(selectedIdx); }
+}
+
+function deleteShipment(rowNum, id, isDiet) {
+  if (!confirm('이 발송 기록을 삭제할까요?')) return;
+  const notes = shipmentNotesOf(isDiet);
+  notes.shipments = (notes.shipments || []).filter(function (x) { return x.id !== id; });
+  if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
+  else { saveAll(rowNum); renderDetail(selectedIdx); }
+}
+
+function shipmentRowHtml(rowNum, s, isDiet) {
+  const shipDate = parseYMD(s.date);
+  const arrival = estimateArrival(s.date);
+  const call = estimateCallDate(s.date);
+  const todayStr = toYMD(new Date());
+  const overdue = !s.called && call && toYMD(call.max) < todayStr;
+  let cls = 'ship-row';
+  if (s.called) cls += ' done';
+  else if (overdue) cls += ' overdue';
+  return `<div class="${cls}">
+    <div class="ship-main">
+      <span class="ship-date">${fmtMD(shipDate)} 발송</span>
+      ${s.memo ? `<span class="ship-memo">${esc(s.memo)}</span>` : ''}
+    </div>
+    <div class="ship-sub">도착예상 ${fmtRange(arrival && arrival.min, arrival && arrival.max)} · 전화예정 <b>${fmtRange(call && call.min, call && call.max)}</b>${overdue ? ' (지남)' : ''}</div>
+    <div class="ship-actions">
+      <button class="ship-btn${s.called ? ' on' : ''}" onclick="toggleShipmentCalled(${rowNum}, ${s.id}, ${isDiet})">${s.called ? '✅ 전화완료' : '전화완료 표시'}</button>
+      <button class="ship-del" onclick="deleteShipment(${rowNum}, ${s.id}, ${isDiet})">삭제</button>
+    </div>
+  </div>`;
+}
+
+function renderShipmentBox(rowNum, isDiet) {
+  const notes = shipmentNotesOf(isDiet);
+  const idPrefix = isDiet ? 'diet-' : '';
+  const list = Array.isArray(notes.shipments) ? notes.shipments.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }) : [];
+  const rowsHtml = list.length ? list.map(function (s) { return shipmentRowHtml(rowNum, s, isDiet); }).join('') : '<div class="ship-empty">등록된 발송 기록이 없습니다.</div>';
+  return `<div class="side-box ship">
+    <div class="side-box-hdr"><h3>🚚 약 발송 · 전화 예정</h3></div>
+    <div class="ship-add">
+      <input type="date" id="${idPrefix}ship-date" value="${toYMD(new Date())}">
+      <input type="text" id="${idPrefix}ship-memo" placeholder="메모(예: 1제, 2번째 제 등, 선택)">
+      <button class="side-btn" onclick="addShipment(${rowNum}, ${isDiet})">+ 발송 기록 추가</button>
+    </div>
+    <div class="ship-list">${rowsHtml}</div>
+  </div>`;
+}
+
+// ===== 발송·전화 달력(모달) =====
+// 한약문진/다이어트문진 환자 전체의 발송 기록을 모아, 특정 날짜에 누구 약이 나갔고
+// 누구에게 전화할 때인지 한눈에 보여줍니다.
+function collectShipmentEvents_() {
+  const evs = [];
+  function fromList(list, isDiet) {
+    list.forEach(function (r) {
+      let notes = null;
+      try { notes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { notes = null; }
+      const ships = (notes && Array.isArray(notes.shipments)) ? notes.shipments : [];
+      ships.forEach(function (s) {
+        if (!s.date) return;
+        const arrival = estimateArrival(s.date);
+        const call = estimateCallDate(s.date);
+        const base = {
+          rowNum: r.rowNum, name: r.name, phone: r.phone, isDiet: isDiet,
+          memo: s.memo || '', shipDate: s.date, called: !!s.called,
+          arrivalText: arrival ? fmtRange(arrival.min, arrival.max) : '-',
+          callText: call ? fmtRange(call.min, call.max) : '-'
+        };
+        evs.push(Object.assign({ type: 'ship', date: s.date }, base));
+        if (call) {
+          const d1 = toYMD(call.min), d2 = toYMD(call.max);
+          evs.push(Object.assign({ type: 'call', date: d1, date2: d1 !== d2 ? d2 : null }, base));
+        }
+      });
+    });
+  }
+  fromList(records, false);
+  fromList(dietRecords, true);
+  return evs;
+}
+
+function pendingCallCount_() {
+  const today = toYMD(new Date());
+  let count = 0;
+  collectShipmentEvents_().forEach(function (e) {
+    if (e.type === 'call' && !e.called && e.date <= today) count++;
+  });
+  return count;
+}
+
+function updateCalendarBadge() {
+  const el = document.getElementById('cal-badge-dot');
+  if (!el) return;
+  const n = pendingCallCount_();
+  el.style.display = n > 0 ? 'flex' : 'none';
+  el.textContent = n > 99 ? '99+' : String(n);
+}
+
+function openCalendar() {
+  const now = new Date();
+  if (calYear === null) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+  calSelectedDate = toYMD(now);
+  document.getElementById('calendar-modal').classList.add('open');
+  renderCalendar();
+}
+function closeCalendar() {
+  document.getElementById('calendar-modal').classList.remove('open');
+}
+function calPrevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); }
+function calNextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); }
+function calToday() {
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth(); calSelectedDate = toYMD(now);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const events = collectShipmentEvents_();
+  const byDate = {};
+  events.forEach(function (e) {
+    if (!byDate[e.date]) byDate[e.date] = { ship: [], call: [] };
+    byDate[e.date][e.type].push(e);
+    if (e.type === 'call' && e.date2) {
+      if (!byDate[e.date2]) byDate[e.date2] = { ship: [], call: [] };
+      byDate[e.date2].call.push(e);
+    }
+  });
+
+  const todayStr = toYMD(new Date());
+  const first = new Date(calYear, calMonth, 1);
+  const startOffset = first.getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
+
+  const dowHtml = ['일', '월', '화', '수', '목', '금', '토'].map(function (d) { return `<div class="cal-dow">${d}</div>`; }).join('');
+  let cells = '';
+  for (let i = 0; i < startOffset; i++) {
+    cells += `<div class="cal-cell other-month"><div class="cal-daynum">${prevMonthDays - startOffset + i + 1}</div></div>`;
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    const info = byDate[dateStr];
+    const shipCount = info ? info.ship.length : 0;
+    const callList = info ? info.call : [];
+    const pendingCall = callList.some(function (e) { return !e.called; });
+    let badges = '';
+    if (shipCount) badges += `<span class="cal-badge ship">발송 ${shipCount}</span>`;
+    if (callList.length) badges += `<span class="cal-badge call${pendingCall ? '' : ' done'}">전화 ${callList.length}</span>`;
+    const cls = ['cal-cell'];
+    if (dateStr === todayStr) cls.push('today');
+    if (dateStr === calSelectedDate) cls.push('selected');
+    if (dateStr < todayStr && pendingCall) cls.push('overdue');
+    cells += `<div class="${cls.join(' ')}" onclick="calSelectDay('${dateStr}')"><div class="cal-daynum">${day}</div>${badges}</div>`;
+  }
+  const totalCells = startOffset + daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for (let i = 1; i <= trailing; i++) {
+    cells += `<div class="cal-cell other-month"><div class="cal-daynum">${i}</div></div>`;
+  }
+
+  document.getElementById('cal-title').textContent = calYear + '년 ' + (calMonth + 1) + '월';
+  document.getElementById('cal-grid').innerHTML = dowHtml + cells;
+  renderCalDetail(byDate[calSelectedDate]);
+  updateCalendarBadge();
+}
+
+function calSelectDay(dateStr) {
+  calSelectedDate = dateStr;
+  renderCalendar();
+}
+
+function renderCalDetail(info) {
+  const dateEl = document.getElementById('cal-detail-date');
+  const bodyEl = document.getElementById('cal-detail-body');
+  const d = calSelectedDate ? parseYMD(calSelectedDate) : null;
+  dateEl.textContent = d ? fmtMD(d) : '';
+  if (!info || (info.ship.length === 0 && info.call.length === 0)) {
+    bodyEl.innerHTML = '<div class="cal-empty">이 날짜에는 발송·전화 예정이 없습니다.</div>';
+    return;
+  }
+  let html = '';
+  info.ship.forEach(function (e) {
+    html += `<div class="cal-event">
+      <div><span class="cal-ev-tag ship">발송</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.memo ? ' · ' + esc(e.memo) : ''}
+        <div class="cal-event-sub">도착예상 ${e.arrivalText} · 전화예정 ${e.callText}</div>
+      </div>
+      <button onclick="jumpToPatient(${e.rowNum}, ${e.isDiet})">환자 열기</button>
+    </div>`;
+  });
+  info.call.forEach(function (e) {
+    html += `<div class="cal-event">
+      <div><span class="cal-ev-tag call${e.called ? ' done' : ''}">${e.called ? '전화완료' : '전화예정'}</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.memo ? ' · ' + esc(e.memo) : ''}
+        <div class="cal-event-sub">발송일 ${fmtMD(parseYMD(e.shipDate))} · 전화예정 ${e.callText}</div>
+      </div>
+      <button onclick="jumpToPatient(${e.rowNum}, ${e.isDiet})">환자 열기</button>
+    </div>`;
+  });
+  bodyEl.innerHTML = html;
+}
+
+function jumpToPatient(rowNum, isDiet) {
+  closeCalendar();
+  switchForm(isDiet ? 'diet' : 'herbal');
+  const list = isDiet ? dietRecords : records;
+  const idx = list.findIndex(function (r) { return r.rowNum === rowNum; });
+  if (idx === -1) return;
+  if (isDiet) renderDietDetail(idx); else renderDetail(idx);
+}
+
 // ===== 진료 방식(직접 내원 / 전화 비대면) =====
 // 원장님이 상세 화면에서 표시. measurements와 마찬가지로 별도 시트 칸 없이 dietNotes 안에
 // visitType('clinic' | 'phone')으로 저장되어, 목록에도 배지로 표시됩니다.
@@ -1728,6 +2103,7 @@ function renderDietDetail(i) {
     try { parsedNotes = r.doctorNotes ? JSON.parse(r.doctorNotes) : null; } catch (e) { parsedNotes = null; }
     dietNotes = (parsedNotes && typeof parsedNotes === 'object') ? Object.assign({ memo: '' }, parsedNotes) : { memo: '' };
     if (!Array.isArray(dietNotes.measurements)) dietNotes.measurements = [];
+    if (!Array.isArray(dietNotes.shipments)) dietNotes.shipments = [];
     editedVitals = { height: r.height || '', weight: r.weight || '', goal: r.goal || '' };
     selectedGender = r.gender || null;
     isChildPatient = isChildAge(r.birthDate);
@@ -1790,6 +2166,7 @@ function renderDietDetail(i) {
     <div class="side-box-hdr"><h3>📝 상담메모</h3><button class="side-btn ghost" onclick="toggleBig('diet-memo-note', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="diet-memo-note" oninput="dietNotes.memo=this.value" placeholder="상담 중 원장님 의견을 적어주세요...">${esc(dietNotes.memo || '')}</textarea>
   </div>`;
+  side += renderShipmentBox(r.rowNum, true);
   side += `<div class="save-bar">
     <button onclick="saveDietAll(${r.rowNum})">💾 저장</button>
     <span class="save-status"></span>
