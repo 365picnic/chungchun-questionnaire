@@ -233,11 +233,15 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ai-q-reason { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
 
 /* 약 발송 기록 / 전화 예정일 - 택배로 나간 약과, 그 약 복용 10일쯤 후 상태 확인 전화 예정일을 관리 */
-.ship-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ship-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
 .ship-add input[type="date"] { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 8px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
 .ship-add input[type="text"] { flex: 1; min-width: 90px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
 .ship-add input:focus { outline: none; border-color: var(--brand-2); }
 .ship-add button { flex-shrink: 0; }
+.ship-seq-group { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-500); flex-shrink: 0; }
+.ship-seq-group input[type="number"] { width: 42px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 4px; text-align: center; font-size: 12px; font-family: inherit; color: var(--ink-900); }
+.ship-seq-group input[type="number"]:focus { outline: none; border-color: var(--brand-2); }
+.ship-note { font-size: 11px; color: var(--ink-500); margin-top: 2px; }
 .ship-list { display: flex; flex-direction: column; gap: 8px; }
 .ship-row { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 9px 11px; }
 .ship-row.done { opacity: .55; }
@@ -1829,14 +1833,36 @@ function shipmentNotesOf(isDiet) { return isDiet ? dietNotes : doctorNotes; }
 function addShipment(rowNum, isDiet) {
   const idPrefix = isDiet ? 'diet-' : '';
   const dateEl = document.getElementById(idPrefix + 'ship-date');
+  const prescEl = document.getElementById(idPrefix + 'ship-presc');
+  const totalEl = document.getElementById(idPrefix + 'ship-total');
+  const seqEl = document.getElementById(idPrefix + 'ship-seq');
   const memoEl = document.getElementById(idPrefix + 'ship-memo');
   const d = (dateEl.value || '').trim();
   if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
   const notes = shipmentNotesOf(isDiet);
   if (!Array.isArray(notes.shipments)) notes.shipments = [];
-  notes.shipments.push({ id: Date.now(), date: d, memo: (memoEl.value || '').trim(), called: false });
+  notes.shipments.push({
+    id: Date.now(),
+    date: d,
+    prescription: (prescEl.value || '').trim(),
+    totalPacks: totalEl.value ? parseInt(totalEl.value, 10) : null,
+    packNum: seqEl.value ? parseInt(seqEl.value, 10) : null,
+    memo: (memoEl.value || '').trim(),
+    called: false
+  });
   if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
   else { saveAll(rowNum); renderDetail(selectedIdx); }
+}
+
+// 처방명/제차수를 "쌍화탕 2-1제"처럼 한 줄로 합쳐서 보여주기 위한 라벨.
+// 옛날에 저장된 기록(처방명/제차수 없이 memo만 있던 시절)은 그냥 빈 라벨을 돌려주고,
+// 그 memo 내용은 shipmentRowHtml/캘린더 쪽에서 별도 줄로 그대로 보여줍니다.
+function packLabel(s) {
+  const parts = [];
+  if (s.prescription) parts.push(s.prescription);
+  if (s.totalPacks && s.packNum) parts.push(s.totalPacks + '-' + s.packNum + '제');
+  else if (s.packNum) parts.push(s.packNum + '번째 제');
+  return parts.join(' · ');
 }
 
 function toggleShipmentCalled(rowNum, id, isDiet) {
@@ -1865,11 +1891,13 @@ function shipmentRowHtml(rowNum, s, isDiet) {
   let cls = 'ship-row';
   if (s.called) cls += ' done';
   else if (overdue) cls += ' overdue';
+  const label = packLabel(s);
   return `<div class="${cls}">
     <div class="ship-main">
       <span class="ship-date">${fmtMD(shipDate)} 발송</span>
-      ${s.memo ? `<span class="ship-memo">${esc(s.memo)}</span>` : ''}
+      ${label ? `<span class="ship-memo">${esc(label)}</span>` : ''}
     </div>
+    ${s.memo ? `<div class="ship-note">${esc(s.memo)}</div>` : ''}
     <div class="ship-sub">도착예상 ${fmtRange(arrival && arrival.min, arrival && arrival.max)} · 전화예정 <b>${fmtRange(call && call.min, call && call.max)}</b>${overdue ? ' (지남)' : ''}</div>
     <div class="ship-actions">
       <button class="ship-btn${s.called ? ' on' : ''}" onclick="toggleShipmentCalled(${rowNum}, ${s.id}, ${isDiet})">${s.called ? '✅ 전화완료' : '전화완료 표시'}</button>
@@ -1887,7 +1915,16 @@ function renderShipmentBox(rowNum, isDiet) {
     <div class="side-box-hdr"><h3>🚚 약 발송 · 전화 예정</h3></div>
     <div class="ship-add">
       <input type="date" id="${idPrefix}ship-date" value="${toYMD(new Date())}">
-      <input type="text" id="${idPrefix}ship-memo" placeholder="메모(예: 1제, 2번째 제 등, 선택)">
+      <input type="text" id="${idPrefix}ship-presc" placeholder="처방명(예: 쌍화탕)">
+      <span class="ship-seq-group">
+        <input type="number" min="1" id="${idPrefix}ship-total" placeholder="총">
+        <span>-</span>
+        <input type="number" min="1" id="${idPrefix}ship-seq" placeholder="번째">
+        <span>제</span>
+      </span>
+    </div>
+    <div class="ship-add">
+      <input type="text" id="${idPrefix}ship-memo" placeholder="기타 메모(선택)">
       <button class="side-btn" onclick="addShipment(${rowNum}, ${isDiet})">+ 발송 기록 추가</button>
     </div>
     <div class="ship-list">${rowsHtml}</div>
@@ -1910,7 +1947,7 @@ function collectShipmentEvents_() {
         const call = estimateCallDate(s.date);
         const base = {
           rowNum: r.rowNum, name: r.name, phone: r.phone, isDiet: isDiet,
-          memo: s.memo || '', shipDate: s.date, called: !!s.called,
+          label: packLabel(s), memo: s.memo || '', shipDate: s.date, called: !!s.called,
           arrivalText: arrival ? fmtRange(arrival.min, arrival.max) : '-',
           callText: call ? fmtRange(call.min, call.max) : '-'
         };
@@ -2029,7 +2066,7 @@ function renderCalDetail(info) {
   let html = '';
   info.ship.forEach(function (e) {
     html += `<div class="cal-event">
-      <div><span class="cal-ev-tag ship">발송</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.memo ? ' · ' + esc(e.memo) : ''}
+      <div><span class="cal-ev-tag ship">발송</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.label ? ' · ' + esc(e.label) : ''}${e.memo ? ' · ' + esc(e.memo) : ''}
         <div class="cal-event-sub">도착예상 ${e.arrivalText} · 전화예정 ${e.callText}</div>
       </div>
       <button onclick="jumpToPatient(${e.rowNum}, ${e.isDiet})">환자 열기</button>
@@ -2037,7 +2074,7 @@ function renderCalDetail(info) {
   });
   info.call.forEach(function (e) {
     html += `<div class="cal-event">
-      <div><span class="cal-ev-tag call${e.called ? ' done' : ''}">${e.called ? '전화완료' : '전화예정'}</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.memo ? ' · ' + esc(e.memo) : ''}
+      <div><span class="cal-ev-tag call${e.called ? ' done' : ''}">${e.called ? '전화완료' : '전화예정'}</span><b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.label ? ' · ' + esc(e.label) : ''}${e.memo ? ' · ' + esc(e.memo) : ''}
         <div class="cal-event-sub">발송일 ${fmtMD(parseYMD(e.shipDate))} · 전화예정 ${e.callText}</div>
       </div>
       <button onclick="jumpToPatient(${e.rowNum}, ${e.isDiet})">환자 열기</button>
