@@ -241,6 +241,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ship-seq-group { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-500); flex-shrink: 0; }
 .ship-seq-group input[type="number"] { width: 42px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 4px; text-align: center; font-size: 12px; font-family: inherit; color: var(--ink-900); }
 .ship-seq-group input[type="number"]:focus { outline: none; border-color: var(--brand-2); }
+.ship-seq-group label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .ship-note { font-size: 11px; color: var(--ink-500); margin-top: 2px; }
 .ship-list { display: flex; flex-direction: column; gap: 8px; }
 .ship-row { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 9px 11px; }
@@ -554,11 +555,15 @@ function estimateArrival(shipDateStr) {
   const max = skipSunday(addDays(min, 1));
   return { min: min, max: max };
 }
-// 전화 예정일 = 도착(복용 시작) 예상일 + 10일. 병원이 쉬는 일요일에 걸리면 월요일로 밀어줍니다.
+// 전화 예정일 = 도착(복용 시작) 예상일 중 더 늦은 쪽 + 10일(도착이 늦어도 안전하게 잡음).
+// 병원이 쉬는 일요일에 걸리면 월요일로 밀어줍니다. 날짜를 범위가 아니라 하나만 돌려줍니다 -
+// 달력에 "전화 2건"처럼 같은 통화가 이틀에 걸쳐 중복 표시되던 문제를 없애기 위해서입니다.
+// 이 날짜가 지나도 통화가 성공 처리되지 않으면, 달력에서는(collectShipmentEvents_) 이 날짜
+// 대신 "오늘" 날짜에 계속 나타나도록 해서 해결될 때까지 매일 다시 눈에 띄게 합니다.
 function estimateCallDate(shipDateStr) {
   const arrival = estimateArrival(shipDateStr);
   if (!arrival) return null;
-  return { min: skipSunday(addDays(arrival.min, 10)), max: skipSunday(addDays(arrival.max, 10)) };
+  return skipSunday(addDays(arrival.max, 10));
 }
 
 // 구글시트가 "01090261075" 같은 전화번호를 숫자로 자동 인식해서 맨 앞 0이 사라지는 경우가 있어
@@ -1931,7 +1936,7 @@ function shipmentRowHtml(rowNum, s, isDiet) {
   const call = estimateCallDate(s.date);
   const todayStr = toYMD(new Date());
   const status = callStatusOf(s);
-  const overdue = status !== 'success' && call && toYMD(call.max) < todayStr;
+  const overdue = status !== 'success' && call && toYMD(call) < todayStr;
   let cls = 'ship-row';
   if (status === 'success') cls += ' done';
   else if (overdue) cls += ' overdue';
@@ -1943,7 +1948,7 @@ function shipmentRowHtml(rowNum, s, isDiet) {
       ${callStatusMarkHtml(status)}
     </div>
     ${s.memo ? `<div class="ship-note">${esc(s.memo)}</div>` : ''}
-    <div class="ship-sub">도착예상 ${fmtRange(arrival && arrival.min, arrival && arrival.max)} · 전화예정 <b>${fmtRange(call && call.min, call && call.max)}</b>${overdue ? ' (지남)' : ''}</div>
+    <div class="ship-sub">도착예상 ${fmtRange(arrival && arrival.min, arrival && arrival.max)} · 전화예정 <b>${fmtMD(call)}</b>${overdue ? ' (지남)' : ''}</div>
     <div class="ship-actions">
       <button class="ship-btn success${status === 'success' ? ' on' : ''}" onclick="setShipmentCallStatus(${rowNum}, ${s.id}, ${isDiet}, 'success')">◯ 통화 성공</button>
       <button class="ship-btn fail${status === 'failed' ? ' on' : ''}" onclick="setShipmentCallStatus(${rowNum}, ${s.id}, ${isDiet}, 'failed')">✓ 통화 실패</button>
@@ -1991,18 +1996,24 @@ function collectShipmentEvents_() {
         if (!s.date) return;
         const arrival = estimateArrival(s.date);
         const call = estimateCallDate(s.date);
+        const status = callStatusOf(s);
         const base = {
           id: s.id, rowNum: r.rowNum, name: r.name, phone: r.phone, isDiet: isDiet,
           prescription: s.prescription || '', totalPacks: s.totalPacks || null, packNum: s.packNum || null,
           label: packLabel(s), memo: s.memo || '', shipDate: s.date,
-          callStatus: callStatusOf(s), called: callStatusOf(s) === 'success',
+          callStatus: status, called: status === 'success',
           arrivalText: arrival ? fmtRange(arrival.min, arrival.max) : '-',
-          callText: call ? fmtRange(call.min, call.max) : '-'
+          callText: call ? fmtMD(call) : '-'
         };
         evs.push(Object.assign({ type: 'ship', date: s.date }, base));
         if (call) {
-          const d1 = toYMD(call.min), d2 = toYMD(call.max);
-          evs.push(Object.assign({ type: 'call', date: d1, date2: d1 !== d2 ? d2 : null }, base));
+          const schedStr = toYMD(call);
+          const todayStr = toYMD(new Date());
+          // 통화가 아직 성공 처리되지 않았다면, 예정일이 지나도 그 날짜에 그대로 두지 않고
+          // "오늘" 날짜로 끌어와서 보여줍니다 - 실패했거나 아직 못 걸었으면 해결될 때까지
+          // 매일 다시 눈에 띄게 하기 위해서입니다(성공 처리되면 원래 예정일에 기록으로 남습니다).
+          const displayDate = status === 'success' ? schedStr : (schedStr > todayStr ? schedStr : todayStr);
+          evs.push(Object.assign({ type: 'call', date: displayDate, scheduledDate: schedStr }, base));
         }
       });
     });
@@ -2053,10 +2064,6 @@ function renderCalendar() {
   events.forEach(function (e) {
     if (!byDate[e.date]) byDate[e.date] = { ship: [], call: [] };
     byDate[e.date][e.type].push(e);
-    if (e.type === 'call' && e.date2) {
-      if (!byDate[e.date2]) byDate[e.date2] = { ship: [], call: [] };
-      byDate[e.date2].call.push(e);
-    }
   });
 
   const todayStr = toYMD(new Date());
@@ -2075,7 +2082,6 @@ function renderCalendar() {
     const info = byDate[dateStr];
     const shipList = info ? info.ship : [];
     const callList = info ? info.call : [];
-    const pendingCall = callList.some(function (e) { return e.callStatus !== 'success'; });
     // 날짜 칸에는 "발송 3건"처럼 개수만 뭉뚱그리지 않고, 어느 환자인지 바로 보이도록
     // "환자이름 제차수" / "환자이름 통화" 식으로 한 명씩 줄을 나눠 보여줍니다.
     // 처방명까지 넣으면 칸이 너무 커져서, 칸 안에는 이름+제차수만 간단히 보여주고
@@ -2097,7 +2103,6 @@ function renderCalendar() {
     const cls = ['cal-cell'];
     if (dateStr === todayStr) cls.push('today');
     if (dateStr === calSelectedDate) cls.push('selected');
-    if (dateStr < todayStr && pendingCall) cls.push('overdue');
     cells += `<div class="${cls.join(' ')}" onclick="calSelectDay('${dateStr}')"><div class="cal-daynum">${day}</div>${badges}</div>`;
   }
   const totalCells = startOffset + daysInMonth;
@@ -2182,12 +2187,22 @@ function calEventRowHtml(e, kind) {
 // 어느 환자인지만 골라서 선택한 날짜로 바로 등록합니다.
 function renderCalAddForm() {
   const options = calPatientOptions();
-  if (options.length === 0) return '';
   const optionsHtml = options.map(function (o) { return `<option value="${o.value}">${esc(o.label)}</option>`; }).join('');
   return `<div class="cal-add-form">
     <div class="cal-add-row">
-      <select id="cal-add-patient">${optionsHtml}</select>
+      <select id="cal-add-patient" onchange="calOnPatientSelectChange()">
+        <option value="manual">+ 직접 입력 (문진 안 한 환자)</option>
+        ${optionsHtml}
+      </select>
       <input type="date" id="cal-add-date" value="${esc(calSelectedDate || toYMD(new Date()))}">
+    </div>
+    <div class="cal-add-row" id="cal-add-manual-row">
+      <input type="text" id="cal-add-manual-name" placeholder="환자 이름">
+      <input type="text" id="cal-add-manual-phone" placeholder="전화번호(선택)">
+      <span class="ship-seq-group">
+        <label><input type="radio" name="cal-add-manual-form" value="herbal" checked> 한약</label>
+        <label><input type="radio" name="cal-add-manual-form" value="diet"> 다이어트</label>
+      </span>
     </div>
     <div class="cal-add-row">
       <input type="text" id="cal-add-presc" placeholder="처방명(예: 쌍화탕)">
@@ -2200,9 +2215,17 @@ function renderCalAddForm() {
     </div>
     <div class="cal-add-row">
       <input type="text" id="cal-add-memo" placeholder="기타 메모(선택)">
-      <button class="side-btn" onclick="calAddShipment()">+ 이 날짜로 발송 기록 추가</button>
+      <button class="side-btn" id="cal-add-btn" onclick="calAddShipment()">+ 이 날짜로 발송 기록 추가</button>
     </div>
   </div>`;
+}
+
+// 환자 선택 칸에서 "+ 직접 입력"을 골랐을 때만 이름/전화번호 입력칸을 보여줍니다.
+function calOnPatientSelectChange() {
+  const sel = document.getElementById('cal-add-patient');
+  const row = document.getElementById('cal-add-manual-row');
+  if (!sel || !row) return;
+  row.hidden = sel.value !== 'manual';
 }
 
 // 한약문진/다이어트문진 환자를 한 목록으로 합쳐 "이름 · 전화번호 · 한약/다이어트" 형태로 보여줍니다.
@@ -2212,6 +2235,33 @@ function calPatientOptions() {
   records.forEach(function (r) { opts.push({ value: '0:' + r.rowNum, label: (r.name || '(이름없음)') + ' · ' + (formatPhone(r.phone) || '') + ' · 한약' }); });
   dietRecords.forEach(function (r) { opts.push({ value: '1:' + r.rowNum, label: (r.name || '(이름없음)') + ' · ' + (formatPhone(r.phone) || '') + ' · 다이어트' }); });
   return opts;
+}
+
+// 문진표를 작성하지 않은 환자(내원만 하거나 예전부터 다니던 환자 등)도 발송 기록을 남길 수 있도록,
+// 이름/전화번호만으로 구글시트에 새 줄을 만들어 달라고 서버에 요청합니다. 이 요청만은 결과(새로
+// 만들어진 줄 번호)를 알아야 해서, 다른 저장 요청과 달리 mode:'no-cors'를 쓰지 않습니다. 대신
+// Content-Type을 text/plain으로 보내 브라우저의 사전 확인(preflight) 요청을 피합니다 - Code.gs는
+// 어차피 요청 내용을 그대로 JSON으로 해석하기 때문에 이렇게 보내도 문제없이 처리됩니다.
+function quickAddPatient_(name, phone, isDiet) {
+  const payload = { action: 'quick_add', key: adminKey, name: name, phone: phone };
+  if (isDiet) payload.formType = 'diet';
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (!data || data.status !== 'ok' || !data.rowNum) return null;
+      const rec = {
+        rowNum: data.rowNum, name: name, phone: formatPhone(phone), birthDate: '', gender: '',
+        submittedAt: new Date().toISOString(), doctorNotes: '', summary: '', raw: ''
+      };
+      if (isDiet) dietRecords.unshift(rec); else records.unshift(rec);
+      renderList();
+      return rec;
+    })
+    .catch(function () { return null; });
 }
 
 function calFindRec_(rowNum, isDiet) {
@@ -2285,14 +2335,7 @@ function calSaveEdit(rowNum, isDiet, shipId) {
   });
 }
 
-function calAddShipment() {
-  const sel = document.getElementById('cal-add-patient');
-  if (!sel || !sel.value) { alert('환자를 선택해주세요.'); return; }
-  const parts = sel.value.split(':');
-  const isDiet = parts[0] === '1';
-  const rowNum = parseInt(parts[1], 10);
-  const rec = calFindRec_(rowNum, isDiet);
-  if (!rec) return;
+function calAddShipmentTo_(rec, isDiet) {
   const d = (document.getElementById('cal-add-date').value || '').trim();
   if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
   const prescription = (document.getElementById('cal-add-presc').value || '').trim();
@@ -2314,6 +2357,36 @@ function calAddShipment() {
     called: false
   });
   applyNotesToRecord_(rec, isDiet, notes);
+}
+
+function calAddShipment() {
+  const sel = document.getElementById('cal-add-patient');
+  if (!sel || !sel.value) { alert('환자를 선택해주세요.'); return; }
+
+  if (sel.value === 'manual') {
+    const name = (document.getElementById('cal-add-manual-name').value || '').trim();
+    if (!name) { alert('환자 이름을 입력해주세요.'); return; }
+    const phone = (document.getElementById('cal-add-manual-phone').value || '').trim();
+    const isDiet = document.querySelector('input[name="cal-add-manual-form"]:checked').value === 'diet';
+    const btn = document.getElementById('cal-add-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '환자 등록 중...'; }
+    quickAddPatient_(name, phone, isDiet).then(function (rec) {
+      if (!rec) {
+        alert('환자 등록에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.');
+        if (btn) { btn.disabled = false; btn.textContent = '+ 이 날짜로 발송 기록 추가'; }
+        return;
+      }
+      calAddShipmentTo_(rec, isDiet);
+    });
+    return;
+  }
+
+  const parts = sel.value.split(':');
+  const isDiet = parts[0] === '1';
+  const rowNum = parseInt(parts[1], 10);
+  const rec = calFindRec_(rowNum, isDiet);
+  if (!rec) return;
+  calAddShipmentTo_(rec, isDiet);
 }
 
 function jumpToPatient(rowNum, isDiet) {

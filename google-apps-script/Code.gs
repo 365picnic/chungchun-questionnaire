@@ -49,6 +49,11 @@ function doPost(e) {
   if (data.action === 'delete') {
     return handleDelete_(data);
   }
+  // 관리자페이지 달력에서 "문진 없는 환자"에게 발송 기록을 남길 때 - 이름/전화번호만으로
+  // 새 줄을 만들고, 그 자리에 바로 발송 기록을 달 수 있도록 줄 번호(rowNum)를 돌려줍니다.
+  if (data.action === 'quick_add') {
+    return handleQuickAdd_(data);
+  }
   // 다이어트 문진(diet.html)에서 접수된 신규 제출 - 별도 시트에 저장
   if (data.formType === 'diet') {
     return handleDietSubmit_(data);
@@ -166,6 +171,32 @@ function handleDelete_(data) {
   }
   sheet.deleteRow(rowNum);
   return jsonOutput_({ status: 'ok' });
+}
+
+// 관리자페이지 달력에서 문진표를 작성하지 않은 환자(내원만 했거나 예전부터 다니던 환자 등)에게도
+// 발송 기록을 남길 수 있도록, 이름/전화번호만으로 새 줄을 하나 만듭니다. 문진 답변(요약/원본/키/
+// 몸무게 등)은 전부 비워두고, 나중에 그 환자가 실제로 문진표를 작성해도 이 줄과는 자동으로
+// 합쳐지지 않습니다(중복되면 관리자페이지의 삭제 기능으로 정리해주세요).
+// 새로 만들어진 줄 번호(rowNum)를 돌려줘야 하므로, 관리자페이지에서는 이 요청만 응답을 읽습니다.
+function handleQuickAdd_(data) {
+  if (!data.key || data.key !== ADMIN_KEY) {
+    return jsonOutput_({ status: 'error', message: 'invalid key' });
+  }
+  var name = data.name || '';
+  if (!name) {
+    return jsonOutput_({ status: 'error', message: 'name required' });
+  }
+  var phone = data.phone || '';
+  var isDiet = data.formType === 'diet';
+  var sheet = isDiet ? getOrCreateDietSheet_() : getOrCreateSheet_();
+  if (isDiet) {
+    sheet.appendRow([new Date(), name, phone, '', '', '', '', '', '', '', '', '', '']);
+  } else {
+    sheet.appendRow([new Date(), name, phone, '', '', '', '', '', '', '', '', '']);
+  }
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 3).setNumberFormat('@').setValue(phone);
+  return jsonOutput_({ status: 'ok', rowNum: lastRow });
 }
 
 // 관리자페이지의 "AI 처방 분석 실행" 버튼 — Gemini API를 호출해 문진/형색성정/안진 데이터를
