@@ -232,7 +232,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 8px; line-height: 1.5; }
 .ai-q-reason { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
 
-/* 약 발송 기록 / 전화 예정일 - 택배로 나간 약과, 그 약 복용 10일쯤 후 상태 확인 전화 예정일을 관리 */
+/* 처방 기록 / 전화 예정일 - 원장님이 처방한 날짜와, 그 약 복용 10일쯤 후 상태 확인 전화 예정일을 관리 */
 .ship-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
 .ship-add input[type="date"] { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 8px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
 .ship-add input[type="text"] { flex: 1; min-width: 90px; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; font-family: inherit; color: var(--ink-900); }
@@ -263,7 +263,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ship-del:hover { background: var(--danger); color: #fff; }
 .ship-empty { font-size: 12px; color: var(--ink-300); text-align: center; padding: 10px 0; }
 
-/* 발송·전화 달력 (모달) - 한약/다이어트 환자 전체를 아울러 언제 약이 나갔고 언제 전화할지 한눈에 봄 */
+/* 처방·전화 달력 (모달) - 한약/다이어트 환자 전체를 아울러 언제 처방했고 언제 전화할지 한눈에 봄 */
 .cal-btn-wrap { position: relative; display: inline-flex; }
 .cal-badge-dot { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
 .cal-overlay { display: none; position: fixed; inset: 0; background: rgba(20, 22, 40, 0.45); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
@@ -417,7 +417,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
     <div class="right">
       <span id="last-updated"></span>
       <span class="cal-btn-wrap">
-        <button onclick="openCalendar()">📅 발송·전화 달력</button>
+        <button onclick="openCalendar()">📅 처방·전화 달력</button>
         <span class="cal-badge-dot" id="cal-badge-dot" style="display:none;">0</span>
       </span>
       <button onclick="refreshAll()">새로고침</button>
@@ -441,7 +441,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
   </div>
 </div>
 
-<!-- 약 발송·전화 예정 달력: 한약/다이어트 환자 전체를 통틀어 언제 약이 나갔고 언제 전화할지 모아서 보여줍니다. -->
+<!-- 처방·전화 예정 달력: 한약/다이어트 환자 전체를 통틀어 언제 처방했고 언제 전화할지 모아서 보여줍니다. -->
 <div class="cal-overlay" id="calendar-modal">
   <div class="cal-card">
     <div class="cal-hdr">
@@ -453,7 +453,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
         <button class="cal-close" onclick="closeCalendar()">&#10005;</button>
       </div>
     </div>
-    <div class="cal-sub">파란 배지 = 약 발송일 · 주황 배지 = 전화 예정일(복용 10일쯤 후, 택배 배송일 감안 추정치). 날짜를 클릭하면 아래에 환자 목록이 보입니다.</div>
+    <div class="cal-sub">파란 배지 = 처방일 · 주황 배지 = 전화 예정일(복용 10일쯤 후, 택배 배송일 감안 추정치). 날짜를 클릭하면 아래에 환자 목록이 보입니다.</div>
     <div class="cal-grid" id="cal-grid"></div>
     <div class="cal-detail">
       <h3 id="cal-detail-date"></h3>
@@ -514,17 +514,17 @@ let doctorNotes = { cc: [], memo: '', prescription: '', tendency: null, myunsaek
 // AI 처방 추천 결과(마지막으로 받은 것) - "근거 보기"/"처방메모에 담기" 버튼에서 참조합니다.
 let lastAiResult = null;
 
-// 발송·전화 달력 모달의 현재 표시 연/월(0=1월)과 선택된 날짜('YYYY-MM-DD').
+// 처방·전화 달력 모달의 현재 표시 연/월(0=1월)과 선택된 날짜('YYYY-MM-DD').
 let calYear = null;
 let calMonth = null;
 let calSelectedDate = null;
-// 달력 안에서 인라인으로 수정 중인 발송 기록의 id (없으면 null).
+// 달력 안에서 인라인으로 수정 중인 처방 기록의 id (없으면 null).
 let calEditingShipId = null;
 
 loadData();
 loadDietData();
 
-// ===== 날짜 계산 유틸: 약 발송일 → 택배 도착 예상일 → 전화 예정일(복용 10일쯤 후) =====
+// ===== 날짜 계산 유틸: 처방일 → 택배 도착 예상일 → 전화 예정일(복용 10일쯤 후) =====
 // 생년월일과 같은 이유로, Date 객체를 시각(시/분/초, 시간대)까지 다루지 않고
 // "YYYY-MM-DD" 문자열과 로컬 자정 기준 Date만 오가며 계산해 하루가 밀리는 문제를 피합니다.
 function parseYMD(s) {
@@ -545,8 +545,8 @@ function fmtRange(min, max) {
   if (!min) return '-';
   return toYMD(min) === toYMD(max) ? fmtMD(min) : fmtMD(min) + '~' + fmtMD(max);
 }
-// 오늘 처방(발송)하면 보통 내일이나 모레쯤 도착 - 주말(일요일)이 끼면 하루 정도 더 늘어난다는
-// 원장님 설명을 그대로 규칙화: 발송일+1일을 최소 도착일, +1일을 더한 값을 최대 도착일로 보되
+// 오늘 처방하면 보통 내일이나 모레쯤 도착 - 주말(일요일)이 끼면 하루 정도 더 늘어난다는
+// 원장님 설명을 그대로 규칙화: 처방일+1일을 최소 도착일, +1일을 더한 값을 최대 도착일로 보되
 // 각각 일요일에 걸리면 월요일로 밀어줍니다.
 function estimateArrival(shipDateStr) {
   const ship = parseYMD(shipDateStr);
@@ -1846,9 +1846,9 @@ function deleteMeasurement(rowNum, idx) {
   renderDietDetail(selectedDietIdx);
 }
 
-// ===== 약 발송 기록 / 전화 예정일 =====
-// 한약을 택배로 보낼 때마다(보통 2제 이상을 한 번에 다 주지 않고, 1제씩 나눠 보내며 그 사이에
-// 전화로 경과를 확인) 발송일을 기록해두면, 도착 예상일과 다음 전화 예정일(복용 10일쯤 후)을
+// ===== 처방 기록 / 전화 예정일 =====
+// 한약을 처방할 때마다(보통 2제 이상을 한 번에 다 주지 않고, 1제씩 처방하며 그 사이에
+// 전화로 경과를 확인) 처방일을 기록해두면, 도착 예상일과 다음 전화 예정일(복용 10일쯤 후)을
 // 자동으로 계산해 보여줍니다. 한약문진(doctorNotes)/다이어트문진(dietNotes) 양쪽에서 공용으로 씁니다.
 function shipmentNotesOf(isDiet) { return isDiet ? dietNotes : doctorNotes; }
 
@@ -1860,7 +1860,7 @@ function addShipment(rowNum, isDiet) {
   const seqEl = document.getElementById(idPrefix + 'ship-seq');
   const memoEl = document.getElementById(idPrefix + 'ship-memo');
   const d = (dateEl.value || '').trim();
-  if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
+  if (!d) { alert('처방 날짜를 선택해주세요.'); return; }
   const notes = shipmentNotesOf(isDiet);
   if (!Array.isArray(notes.shipments)) notes.shipments = [];
   notes.shipments.push({
@@ -1923,7 +1923,7 @@ function setShipmentCallStatus(rowNum, id, isDiet, status) {
 }
 
 function deleteShipment(rowNum, id, isDiet) {
-  if (!confirm('이 발송 기록을 삭제할까요?')) return;
+  if (!confirm('이 처방 기록을 삭제할까요?')) return;
   const notes = shipmentNotesOf(isDiet);
   notes.shipments = (notes.shipments || []).filter(function (x) { return x.id !== id; });
   if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
@@ -1943,7 +1943,7 @@ function shipmentRowHtml(rowNum, s, isDiet) {
   const label = packLabel(s);
   return `<div class="${cls}">
     <div class="ship-main">
-      <span class="ship-date">${fmtMD(shipDate)} 발송</span>
+      <span class="ship-date">${fmtMD(shipDate)} 처방</span>
       ${label ? `<span class="ship-memo">${esc(label)}</span>` : ''}
       ${callStatusMarkHtml(status)}
     </div>
@@ -1961,9 +1961,9 @@ function renderShipmentBox(rowNum, isDiet) {
   const notes = shipmentNotesOf(isDiet);
   const idPrefix = isDiet ? 'diet-' : '';
   const list = Array.isArray(notes.shipments) ? notes.shipments.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }) : [];
-  const rowsHtml = list.length ? list.map(function (s) { return shipmentRowHtml(rowNum, s, isDiet); }).join('') : '<div class="ship-empty">등록된 발송 기록이 없습니다.</div>';
+  const rowsHtml = list.length ? list.map(function (s) { return shipmentRowHtml(rowNum, s, isDiet); }).join('') : '<div class="ship-empty">등록된 처방 기록이 없습니다.</div>';
   return `<div class="side-box ship">
-    <div class="side-box-hdr"><h3>🚚 약 발송 · 전화 예정</h3></div>
+    <div class="side-box-hdr"><h3>📅 처방 · 전화 예정</h3></div>
     <div class="ship-add">
       <input type="date" id="${idPrefix}ship-date" value="${toYMD(new Date())}">
       <input type="text" id="${idPrefix}ship-presc" placeholder="처방명(예: 쌍화탕)">
@@ -1976,14 +1976,14 @@ function renderShipmentBox(rowNum, isDiet) {
     </div>
     <div class="ship-add">
       <input type="text" id="${idPrefix}ship-memo" placeholder="기타 메모(선택)">
-      <button class="side-btn" onclick="addShipment(${rowNum}, ${isDiet})">+ 발송 기록 추가</button>
+      <button class="side-btn" onclick="addShipment(${rowNum}, ${isDiet})">+ 처방 기록 추가</button>
     </div>
     <div class="ship-list">${rowsHtml}</div>
   </div>`;
 }
 
-// ===== 발송·전화 달력(모달) =====
-// 한약문진/다이어트문진 환자 전체의 발송 기록을 모아, 특정 날짜에 누구 약이 나갔고
+// ===== 처방·전화 달력(모달) =====
+// 한약문진/다이어트문진 환자 전체의 처방 기록을 모아, 특정 날짜에 누구를 처방했고
 // 누구에게 전화할 때인지 한눈에 보여줍니다.
 function collectShipmentEvents_() {
   const evs = [];
@@ -2082,7 +2082,7 @@ function renderCalendar() {
     const info = byDate[dateStr];
     const shipList = info ? info.ship : [];
     const callList = info ? info.call : [];
-    // 날짜 칸에는 "발송 3건"처럼 개수만 뭉뚱그리지 않고, 어느 환자인지 바로 보이도록
+    // 날짜 칸에는 "처방 3건"처럼 개수만 뭉뚱그리지 않고, 어느 환자인지 바로 보이도록
     // "환자이름 제차수" / "환자이름 통화" 식으로 한 명씩 줄을 나눠 보여줍니다.
     // 처방명까지 넣으면 칸이 너무 커져서, 칸 안에는 이름+제차수만 간단히 보여주고
     // 처방명 등 자세한 내용은 날짜를 눌렀을 때 아래 상세 목록에서 보여줍니다.
@@ -2130,7 +2130,7 @@ function renderCalDetail(info) {
 
   let html = renderCalAddForm();
   if (!info || (info.ship.length === 0 && info.call.length === 0)) {
-    html += '<div class="cal-empty">이 날짜에는 발송·전화 예정이 없습니다.</div>';
+    html += '<div class="cal-empty">이 날짜에는 처방·전화 예정이 없습니다.</div>';
   } else {
     info.ship.forEach(function (e) { html += calEventRowHtml(e, 'ship'); });
     info.call.forEach(function (e) { html += calEventRowHtml(e, 'call'); });
@@ -2139,7 +2139,7 @@ function renderCalDetail(info) {
 }
 
 function calEventRowHtml(e, kind) {
-  // 수정 버튼을 누른 발송 기록은, 목록 줄 대신 바로 그 자리에 입력폼으로 바꿔서 보여줍니다.
+  // 수정 버튼을 누른 처방 기록은, 목록 줄 대신 바로 그 자리에 입력폼으로 바꿔서 보여줍니다.
   if (calEditingShipId === e.id) {
     return `<div class="cal-event cal-event-edit">
       <div class="cal-add-row">
@@ -2163,11 +2163,11 @@ function calEventRowHtml(e, kind) {
   }
   const callTagLabel = e.callStatus === 'success' ? '통화 성공' : (e.callStatus === 'failed' ? '통화 실패(재시도 필요)' : '전화예정');
   const tagHtml = kind === 'ship'
-    ? `<span class="cal-ev-tag ship">발송</span>${callStatusMarkHtml(e.callStatus)}`
+    ? `<span class="cal-ev-tag ship">처방</span>${callStatusMarkHtml(e.callStatus)}`
     : `<span class="cal-ev-tag call${e.callStatus === 'success' ? ' done' : (e.callStatus === 'failed' ? ' fail' : '')}">${callTagLabel}</span>`;
   const subHtml = kind === 'ship'
     ? `도착예상 ${e.arrivalText} · 전화예정 ${e.callText}`
-    : `발송일 ${fmtMD(parseYMD(e.shipDate))} · 전화예정 ${e.callText}`;
+    : `처방일 ${fmtMD(parseYMD(e.shipDate))} · 전화예정 ${e.callText}`;
   return `<div class="cal-event">
     <div>
       ${tagHtml}<b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.label ? ' · ' + esc(e.label) : ''}${e.memo ? ' · ' + esc(e.memo) : ''}
@@ -2183,7 +2183,7 @@ function calEventRowHtml(e, kind) {
   </div>`;
 }
 
-// 달력 안에서 바로 새 발송 기록을 추가하는 폼 - 환자 상세화면까지 갈 필요 없이,
+// 달력 안에서 바로 새 처방 기록을 추가하는 폼 - 환자 상세화면까지 갈 필요 없이,
 // 어느 환자인지만 골라서 선택한 날짜로 바로 등록합니다.
 function renderCalAddForm() {
   const options = calPatientOptions();
@@ -2215,7 +2215,7 @@ function renderCalAddForm() {
     </div>
     <div class="cal-add-row">
       <input type="text" id="cal-add-memo" placeholder="기타 메모(선택)">
-      <button class="side-btn" id="cal-add-btn" onclick="calAddShipment()">+ 이 날짜로 발송 기록 추가</button>
+      <button class="side-btn" id="cal-add-btn" onclick="calAddShipment()">+ 이 날짜로 처방 기록 추가</button>
     </div>
   </div>`;
 }
@@ -2237,7 +2237,7 @@ function calPatientOptions() {
   return opts;
 }
 
-// 문진표를 작성하지 않은 환자(내원만 하거나 예전부터 다니던 환자 등)도 발송 기록을 남길 수 있도록,
+// 문진표를 작성하지 않은 환자(내원만 하거나 예전부터 다니던 환자 등)도 처방 기록을 남길 수 있도록,
 // 이름/전화번호만으로 구글시트에 새 줄을 만들어 달라고 서버에 요청합니다. 이 요청만은 결과(새로
 // 만들어진 줄 번호)를 알아야 해서, 다른 저장 요청과 달리 mode:'no-cors'를 쓰지 않습니다. 대신
 // Content-Type을 text/plain으로 보내 브라우저의 사전 확인(preflight) 요청을 피합니다 - Code.gs는
@@ -2269,7 +2269,7 @@ function calFindRec_(rowNum, isDiet) {
   return list.find(function (r) { return r.rowNum === rowNum; });
 }
 
-// 발송 기록을 고쳐서(notes.shipments를 바꾼 뒤) 저장 서버에 반영하고, 화면(달력 + 현재 열려있는
+// 처방 기록을 고쳐서(notes.shipments를 바꾼 뒤) 저장 서버에 반영하고, 화면(달력 + 현재 열려있는
 // 환자 상세화면 + 상단 배지)까지 한 번에 갱신합니다. 달력에서 하는 추가/수정/삭제/전화완료 토글이
 // 모두 이 함수를 거칩니다.
 function applyNotesToRecord_(rec, isDiet, notes) {
@@ -2286,7 +2286,7 @@ function applyNotesToRecord_(rec, isDiet, notes) {
   if (isDiet && selectedDietIdx !== null && dietRecords[selectedDietIdx] && dietRecords[selectedDietIdx].rowNum === rec.rowNum) renderDietDetail(selectedDietIdx);
 }
 
-// shipId로 발송 기록 하나를 찾아 mutateFn으로 고칩니다. mutateFn이 문자열 'delete'를 돌려주면
+// shipId로 처방 기록 하나를 찾아 mutateFn으로 고칩니다. mutateFn이 문자열 'delete'를 돌려주면
 // 그 기록을 통째로 지웁니다(전화완료 토글/수정/삭제가 모두 이 함수 하나로 처리됩니다).
 function calMutateShipment_(rowNum, isDiet, shipId, mutateFn) {
   const rec = calFindRec_(rowNum, isDiet);
@@ -2311,7 +2311,7 @@ function calSetCallStatus(rowNum, isDiet, shipId, status) {
 }
 
 function calDeleteShipment(rowNum, isDiet, shipId) {
-  if (!confirm('이 발송 기록을 삭제할까요?')) return;
+  if (!confirm('이 처방 기록을 삭제할까요?')) return;
   calMutateShipment_(rowNum, isDiet, shipId, function () { return 'delete'; });
 }
 
@@ -2320,7 +2320,7 @@ function calCancelEdit() { calEditingShipId = null; renderCalendar(); }
 
 function calSaveEdit(rowNum, isDiet, shipId) {
   const d = (document.getElementById('cal-edit-date').value || '').trim();
-  if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
+  if (!d) { alert('처방 날짜를 선택해주세요.'); return; }
   const prescription = (document.getElementById('cal-edit-presc').value || '').trim();
   const totalV = document.getElementById('cal-edit-total').value;
   const seqV = document.getElementById('cal-edit-seq').value;
@@ -2337,7 +2337,7 @@ function calSaveEdit(rowNum, isDiet, shipId) {
 
 function calAddShipmentTo_(rec, isDiet) {
   const d = (document.getElementById('cal-add-date').value || '').trim();
-  if (!d) { alert('발송 날짜를 선택해주세요.'); return; }
+  if (!d) { alert('처방 날짜를 선택해주세요.'); return; }
   const prescription = (document.getElementById('cal-add-presc').value || '').trim();
   const totalV = document.getElementById('cal-add-total').value;
   const seqV = document.getElementById('cal-add-seq').value;
@@ -2373,7 +2373,7 @@ function calAddShipment() {
     quickAddPatient_(name, phone, isDiet).then(function (rec) {
       if (!rec) {
         alert('환자 등록에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.');
-        if (btn) { btn.disabled = false; btn.textContent = '+ 이 날짜로 발송 기록 추가'; }
+        if (btn) { btn.disabled = false; btn.textContent = '+ 이 날짜로 처방 기록 추가'; }
         return;
       }
       calAddShipmentTo_(rec, isDiet);
