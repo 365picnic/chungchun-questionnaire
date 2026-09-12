@@ -280,7 +280,7 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .cal-cell.selected { background: var(--brand-soft); border-color: var(--brand-2); }
 .cal-cell.overdue { border-color: var(--danger); }
 .cal-daynum { font-weight: 700; color: var(--ink-900); }
-.cal-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 1px 5px; display: inline-block; width: fit-content; }
+.cal-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 1px 5px; display: block; width: 100%; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-sizing: border-box; }
 .cal-badge.ship { background: var(--c-blue-soft); color: var(--c-blue); }
 .cal-badge.call { background: var(--c-orange-soft); color: var(--c-orange); }
 .cal-badge.call.done { background: var(--line-soft); color: var(--ink-300); }
@@ -2025,12 +2025,20 @@ function renderCalendar() {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
     const info = byDate[dateStr];
-    const shipCount = info ? info.ship.length : 0;
+    const shipList = info ? info.ship : [];
     const callList = info ? info.call : [];
     const pendingCall = callList.some(function (e) { return !e.called; });
+    // 날짜 칸에는 "발송 3건"처럼 개수만 뭉뚱그리지 않고, 어느 환자인지 바로 보이도록
+    // "환자이름 처방명·제차수" / "환자이름 통화" 식으로 한 명씩 줄을 나눠 보여줍니다.
     let badges = '';
-    if (shipCount) badges += `<span class="cal-badge ship">발송 ${shipCount}</span>`;
-    if (callList.length) badges += `<span class="cal-badge call${pendingCall ? '' : ' done'}">전화 ${callList.length}</span>`;
+    shipList.forEach(function (e) {
+      const text = (e.name || '(이름없음)') + (e.label ? ' ' + e.label : '');
+      badges += `<span class="cal-badge ship">${esc(text)}</span>`;
+    });
+    callList.forEach(function (e) {
+      const text = (e.name || '(이름없음)') + (e.called ? ' 통화완료' : ' 통화');
+      badges += `<span class="cal-badge call${e.called ? ' done' : ''}">${esc(text)}</span>`;
+    });
     const cls = ['cal-cell'];
     if (dateStr === todayStr) cls.push('today');
     if (dateStr === calSelectedDate) cls.push('selected');
