@@ -2220,12 +2220,58 @@ function renderCalAddForm() {
   </div>`;
 }
 
-// 환자 선택 칸에서 "+ 직접 입력"을 골랐을 때만 이름/전화번호 입력칸을 보여줍니다.
+// 환자 선택 칸에서 "+ 직접 입력"을 골랐을 때만 이름/전화번호 입력칸을 보여주고,
+// 기존 환자를 골랐을 때는 그 환자의 이름/전화번호/최근 처방 내용을 자동으로 채워줍니다.
 function calOnPatientSelectChange() {
   const sel = document.getElementById('cal-add-patient');
   const row = document.getElementById('cal-add-manual-row');
   if (!sel || !row) return;
   row.hidden = sel.value !== 'manual';
+  calFillFromPatient_(sel.value);
+}
+
+// 그 환자의 처방 기록 중 날짜가 가장 최근인 것 하나를 돌려줍니다(없으면 null).
+// "몇 번째 약" 자동 증가(예: 직전이 4-1이면 다음은 4-2)에 씁니다.
+function calLastShipment_(rec) {
+  let notes;
+  try { notes = rec.doctorNotes ? JSON.parse(rec.doctorNotes) : null; } catch (e) { notes = null; }
+  const list = notes && Array.isArray(notes.shipments) ? notes.shipments : [];
+  if (!list.length) return null;
+  return list.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0];
+}
+
+// 환자 선택 칸의 값(value)에 맞춰 이름/전화번호/처방명/제차수 칸을 채우거나 비웁니다.
+// "+ 직접 입력"이면 새로 적을 수 있게 비우고, 기존 환자면 그 환자의 이름·전화번호와
+// 가장 최근 처방명·총 제수를 그대로 가져오되 번째 수만 다음 번(+1)으로 자동 올려둡니다.
+// 처방명·총 제수는 그대로 두되 그대로 발송하면 안 되는 경우도 있으니 원장님이 고칠 수 있게 둡니다.
+function calFillFromPatient_(value) {
+  const nameEl = document.getElementById('cal-add-manual-name');
+  const phoneEl = document.getElementById('cal-add-manual-phone');
+  const prescEl = document.getElementById('cal-add-presc');
+  const totalEl = document.getElementById('cal-add-total');
+  const seqEl = document.getElementById('cal-add-seq');
+  if (value === 'manual') {
+    if (nameEl) { nameEl.value = ''; nameEl.disabled = false; }
+    if (phoneEl) { phoneEl.value = ''; phoneEl.disabled = false; }
+    if (prescEl) prescEl.value = '';
+    if (totalEl) totalEl.value = '';
+    if (seqEl) seqEl.value = '';
+    return;
+  }
+  const parts = value.split(':');
+  const isDiet = parts[0] === '1';
+  const rowNum = parseInt(parts[1], 10);
+  const rec = calFindRec_(rowNum, isDiet);
+  if (!rec) return;
+  // 기존 환자는 이름·전화번호가 이미 정해져 있으니(위 선택 칸에 그대로 나와 있음) 확인용으로만
+  // 채워두고 고칠 수 없게 잠급니다. 실제로 처방 기록을 저장할 때도 이 칸이 아니라 선택된
+  // 환자 레코드(rec.name/rec.phone)를 그대로 씁니다.
+  if (nameEl) { nameEl.value = rec.name || ''; nameEl.disabled = true; }
+  if (phoneEl) { phoneEl.value = formatPhone(rec.phone) || ''; phoneEl.disabled = true; }
+  const last = calLastShipment_(rec);
+  if (prescEl) prescEl.value = last ? (last.prescription || '') : '';
+  if (totalEl) totalEl.value = last && last.totalPacks ? last.totalPacks : '';
+  if (seqEl) seqEl.value = last && last.packNum ? (last.packNum + 1) : '';
 }
 
 // 한약문진/다이어트문진 환자를 한 목록으로 합쳐 "이름 · 전화번호 · 한약/다이어트" 형태로 보여줍니다.
