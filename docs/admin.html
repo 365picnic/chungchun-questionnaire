@@ -1886,10 +1886,15 @@ function callStatusOf(s) {
   if (s.callStatus === 'success' || s.callStatus === 'failed') return s.callStatus;
   return s.called ? 'success' : null;
 }
-// 통화 성공(◯)/실패(✓) 여부를 환자이름 옆에 작게 표시하기 위한 아이콘.
-function callStatusMarkHtml(status) {
+// 통화 실패가 몇 번째인지(재시도 횟수). 예전 기록은 이 값이 없으니 0으로 봅니다.
+function callFailCountOf(s) {
+  return s.callFailCount || 0;
+}
+// 통화 성공(◯)/실패(✓N) 여부를 환자이름 옆에 작게 표시하기 위한 아이콘.
+// 실패는 여러 번 이어질 수 있어서 몇 번째 실패인지 숫자를 함께 보여줍니다.
+function callStatusMarkHtml(status, failCount) {
   if (status === 'success') return '<span class="call-status-mark success" title="통화 성공">◯</span>';
-  if (status === 'failed') return '<span class="call-status-mark fail" title="통화 실패 · 재시도 필요">✓</span>';
+  if (status === 'failed') return `<span class="call-status-mark fail" title="통화 실패 ${failCount || 1}회 · 재시도 필요">✓${failCount || 1}</span>`;
   return '';
 }
 
@@ -1909,17 +1914,31 @@ function calCompactLabel(e) {
   return '';
 }
 
-// status는 'success'(통화 성공) 또는 'failed'(통화는 했지만 실패/연결 안됨). 이미 그 상태이면
-// 다시 눌러서 취소할 수 있게(미시도로 되돌리기) 같은 값이면 null로 되돌립니다.
+// status는 'success'(통화 성공) 또는 'failed'(통화는 했지만 실패/연결 안됨).
+// 성공은 이미 그 상태에서 다시 누르면 취소할 수 있게(미시도로 되돌리기) null로 되돌립니다.
+// 실패는 여러 번 이어질 수 있으므로 취소하지 않고 누를 때마다 실패 횟수를 하나씩 늘립니다
+// (버튼이 계속 눌려 있는 것처럼 보여도 다시 눌러 다음 실패를 기록할 수 있어야 하기 때문).
 function setShipmentCallStatus(rowNum, id, isDiet, status) {
   const notes = shipmentNotesOf(isDiet);
   const s = (notes.shipments || []).find(function (x) { return x.id === id; });
   if (!s) return;
-  const current = callStatusOf(s);
-  s.callStatus = (current === status) ? null : status;
-  s.called = s.callStatus === 'success'; // 예전 버전(불리언 called만 읽던 코드)과의 호환용
+  applyCallStatus_(s, status);
   if (isDiet) { saveDietAll(rowNum); renderDietDetail(selectedDietIdx); }
   else { saveAll(rowNum); renderDetail(selectedIdx); }
+}
+
+// 통화 성공/실패 버튼 클릭 시 기록 하나(s)의 상태를 바꾸는 공통 로직.
+// setShipmentCallStatus(환자 상세화면)와 calSetCallStatus(달력)가 함께 씁니다.
+function applyCallStatus_(s, status) {
+  const current = callStatusOf(s);
+  if (status === 'failed') {
+    s.callStatus = 'failed';
+    s.callFailCount = callFailCountOf(s) + 1;
+  } else {
+    s.callStatus = (current === status) ? null : status;
+    if (s.callStatus === 'success') s.callFailCount = 0;
+  }
+  s.called = s.callStatus === 'success'; // 예전 버전(불리언 called만 읽던 코드)과의 호환용
 }
 
 function deleteShipment(rowNum, id, isDiet) {
@@ -1945,7 +1964,7 @@ function shipmentRowHtml(rowNum, s, isDiet) {
     <div class="ship-main">
       <span class="ship-date">${fmtMD(shipDate)} 처방</span>
       ${label ? `<span class="ship-memo">${esc(label)}</span>` : ''}
-      ${callStatusMarkHtml(status)}
+      ${callStatusMarkHtml(status, callFailCountOf(s))}
     </div>
     ${s.memo ? `<div class="ship-note">${esc(s.memo)}</div>` : ''}
     <div class="ship-sub">도착예상 ${fmtRange(arrival && arrival.min, arrival && arrival.max)} · 전화예정 <b>${fmtMD(call)}</b>${overdue ? ' (지남)' : ''}</div>
@@ -2001,7 +2020,7 @@ function collectShipmentEvents_() {
           id: s.id, rowNum: r.rowNum, name: r.name, phone: r.phone, isDiet: isDiet,
           prescription: s.prescription || '', totalPacks: s.totalPacks || null, packNum: s.packNum || null,
           label: packLabel(s), memo: s.memo || '', shipDate: s.date,
-          callStatus: status, called: status === 'success',
+          callStatus: status, callFailCount: callFailCountOf(s), called: status === 'success',
           arrivalText: arrival ? fmtRange(arrival.min, arrival.max) : '-',
           callText: call ? fmtMD(call) : '-'
         };
@@ -2096,7 +2115,7 @@ function renderCalendar() {
       let mark = '';
       let statusCls = '';
       if (e.callStatus === 'success') { mark = ' ◯'; statusCls = ' done'; }
-      else if (e.callStatus === 'failed') { mark = ' ✓'; statusCls = ' fail'; }
+      else if (e.callStatus === 'failed') { mark = ' ✓' + (e.callFailCount || 1); statusCls = ' fail'; }
       const text = (e.name || '(이름없음)') + ' 통화' + mark;
       badges += `<span class="cal-badge call${statusCls}">${esc(text)}</span>`;
     });
@@ -2161,9 +2180,9 @@ function calEventRowHtml(e, kind) {
       </div>
     </div>`;
   }
-  const callTagLabel = e.callStatus === 'success' ? '통화 성공' : (e.callStatus === 'failed' ? '통화 실패(재시도 필요)' : '전화예정');
+  const callTagLabel = e.callStatus === 'success' ? '통화 성공' : (e.callStatus === 'failed' ? `실패${e.callFailCount || 1}(재시도 필요)` : '전화예정');
   const tagHtml = kind === 'ship'
-    ? `<span class="cal-ev-tag ship">처방</span>${callStatusMarkHtml(e.callStatus)}`
+    ? `<span class="cal-ev-tag ship">처방</span>${callStatusMarkHtml(e.callStatus, e.callFailCount)}`
     : `<span class="cal-ev-tag call${e.callStatus === 'success' ? ' done' : (e.callStatus === 'failed' ? ' fail' : '')}">${callTagLabel}</span>`;
   const subHtml = kind === 'ship'
     ? `도착예상 ${e.arrivalText} · 전화예정 ${e.callText}`
@@ -2350,9 +2369,7 @@ function calMutateShipment_(rowNum, isDiet, shipId, mutateFn) {
 
 function calSetCallStatus(rowNum, isDiet, shipId, status) {
   calMutateShipment_(rowNum, isDiet, shipId, function (s) {
-    const current = callStatusOf(s);
-    s.callStatus = (current === status) ? null : status;
-    s.called = s.callStatus === 'success';
+    applyCallStatus_(s, status);
   });
 }
 
