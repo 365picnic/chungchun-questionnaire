@@ -1934,9 +1934,16 @@ function applyCallStatus_(s, status) {
   if (status === 'failed') {
     s.callStatus = 'failed';
     s.callFailCount = callFailCountOf(s) + 1;
+    s.callDoneDate = null;
   } else {
     s.callStatus = (current === status) ? null : status;
-    if (s.callStatus === 'success') s.callFailCount = 0;
+    if (s.callStatus === 'success') {
+      s.callFailCount = 0;
+      // 통화예정일(전화예정)이 아니라, 실제로 통화 성공을 누른 오늘 날짜로 달력에 표시하기 위해 기록.
+      s.callDoneDate = toYMD(new Date());
+    } else {
+      s.callDoneDate = null;
+    }
   }
   s.called = s.callStatus === 'success'; // 예전 버전(불리언 called만 읽던 코드)과의 호환용
 }
@@ -2028,10 +2035,11 @@ function collectShipmentEvents_() {
         if (call) {
           const schedStr = toYMD(call);
           const todayStr = toYMD(new Date());
-          // 통화가 아직 성공 처리되지 않았다면, 예정일이 지나도 그 날짜에 그대로 두지 않고
-          // "오늘" 날짜로 끌어와서 보여줍니다 - 실패했거나 아직 못 걸었으면 해결될 때까지
-          // 매일 다시 눈에 띄게 하기 위해서입니다(성공 처리되면 원래 예정일에 기록으로 남습니다).
-          const displayDate = status === 'success' ? schedStr : (schedStr > todayStr ? schedStr : todayStr);
+          // 통화가 성공 처리됐다면 통화예정일이 아니라 실제로 통화 성공을 누른 그 날짜에 표시합니다
+          // (예: 어제가 예정일이었는데 놓치고 오늘 통화가 됐다면 오늘 날짜에 표시).
+          // 아직 성공 처리되지 않았다면, 예정일이 지나도 그 날짜에 그대로 두지 않고 "오늘" 날짜로
+          // 끌어와서 보여줍니다 - 실패했거나 아직 못 걸었으면 해결될 때까지 매일 다시 눈에 띄게 하기 위해서입니다.
+          const displayDate = status === 'success' ? (s.callDoneDate || schedStr) : (schedStr > todayStr ? schedStr : todayStr);
           evs.push(Object.assign({ type: 'call', date: displayDate, scheduledDate: schedStr }, base));
         }
       });
