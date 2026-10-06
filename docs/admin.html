@@ -638,10 +638,30 @@ function switchForm(form) {
   exitMobileDetail();
 }
 
+// 구글 Apps Script 서버가 가끔 오래 걸리다가 "페이지를 찾을 수 없음"(404)을 돌려주는 일이 있어,
+// 실패하면 잠시 쉬었다가 자동으로 다시 요청합니다. 매번 주소 끝에 시각을 붙여 새로 실행되게 합니다.
+async function fetchJsonWithRetry(url, onRetry) {
+  const MAX_TRY = 4;
+  let lastErr;
+  for (let i = 1; i <= MAX_TRY; i++) {
+    try {
+      const res = await fetch(url + '&_=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      if (i < MAX_TRY) {
+        if (onRetry) onRetry(i + 1, MAX_TRY);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function loadDietData() {
   try {
-    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey) + '&type=diet');
-    const data = await res.json();
+    const data = await fetchJsonWithRetry(GAS_URL + '?key=' + encodeURIComponent(adminKey) + '&type=diet');
     if (Array.isArray(data)) {
       dietRecords = data.map(normalizeRecord);
       if (activeForm === 'diet') {
@@ -658,8 +678,9 @@ async function loadData() {
   const statusEl = document.getElementById('last-updated');
   if (statusEl && records.length === 0) statusEl.textContent = '불러오는 중...';
   try {
-    const res = await fetch(GAS_URL + '?key=' + encodeURIComponent(adminKey));
-    const data = await res.json();
+    const data = await fetchJsonWithRetry(GAS_URL + '?key=' + encodeURIComponent(adminKey), (n, max) => {
+      if (statusEl && records.length === 0) statusEl.textContent = '서버 응답이 늦어 다시 시도 중... (' + n + '/' + max + ')';
+    });
     if (Array.isArray(data)) {
       records = data.map(normalizeRecord);
       if (activeForm === 'herbal') {
