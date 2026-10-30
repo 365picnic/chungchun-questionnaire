@@ -2649,7 +2649,7 @@ function buildDietPatientDataForAi(r) {
   lines.push('[신상·체형]');
   lines.push(`나이: ${age} / 성별: ${r.gender || '미기재'}`);
   lines.push(`키: ${editedVitals.height || '미기재'}cm / 몸무게: ${editedVitals.weight || '미기재'}kg / BMI: ${bmi ? bmi.toFixed(1) : '계산 불가'}`);
-  lines.push(`감량 희망: ${editedVitals.goal ? editedVitals.goal + 'kg' : '미기재'} / 희망 처방 기간: ${r.plan || '미기재'}`);
+  lines.push(`최종 감량 희망: ${editedVitals.goal ? editedVitals.goal + 'kg' : '미기재'} / 첫 처방 개월수(우선 진행 기간, 연장 가능): ${r.plan || '미기재'}`);
   const ms = collectDietPatientMeasurements(r);
   if (ms.length) {
     lines.push('');
