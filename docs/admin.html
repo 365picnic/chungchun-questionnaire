@@ -231,6 +231,17 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .ai-questions ul { padding-left: 18px; }
 .ai-questions li { font-size: 11.5px; color: var(--ink-700); margin-bottom: 8px; line-height: 1.5; }
 .ai-q-reason { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
+/* 다이어트문진 AI 분석 결과 */
+.dai-sec { margin-top: 12px; }
+.dai-sec h4 { font-size: 12px; color: var(--ink-900); margin-bottom: 6px; }
+.dai-status { font-size: 12px; color: var(--ink-700); line-height: 1.6; background: var(--line-soft); border-radius: var(--radius-sm); padding: 8px 10px; }
+.dai-item { font-size: 11.5px; color: var(--ink-700); line-height: 1.55; border-left: 3px solid var(--line); padding: 1px 0 1px 9px; margin-bottom: 8px; }
+.dai-item b { display: block; font-size: 12px; color: var(--ink-900); }
+.dai-item.prob { border-left-color: var(--danger); }
+.dai-item.sol { border-left-color: var(--success); }
+.dai-ev { font-size: 10.5px; color: var(--ink-300); margin-top: 2px; }
+.dai-safety { padding-left: 18px; }
+.dai-safety li { font-size: 11.5px; color: var(--danger); margin-bottom: 4px; line-height: 1.5; }
 
 /* 처방 기록 / 전화 예정일 - 원장님이 처방한 날짜와, 그 약 복용 10일쯤 후 상태 확인 전화 예정일을 관리 */
 .ship-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
@@ -2614,6 +2625,7 @@ function renderDietDetail(i) {
     <div class="side-box-hdr"><h3>📝 상담메모</h3><button class="side-btn ghost" onclick="toggleBig('diet-memo-note', this)">크게보기</button></div>
     <textarea class="memo-textarea" id="diet-memo-note" oninput="dietNotes.memo=this.value" placeholder="상담 중 원장님 의견을 적어주세요...">${esc(dietNotes.memo || '')}</textarea>
   </div>`;
+  side += renderDietAiBox(r);
   side += renderShipmentBox(r.rowNum, true);
   side += `<div class="save-bar">
     <button onclick="saveWithPendingShipment(${r.rowNum}, true)">💾 저장</button>
@@ -2623,6 +2635,108 @@ function renderDietDetail(i) {
   document.getElementById('detail').innerHTML =
     `<div class="two-col"><div class="col-main">${h}</div><div class="col-side">${side}</div></div>`;
   enterMobileDetail();
+}
+
+// ===== 다이어트문진 AI 분석 (원장님용) =====
+// 신상(나이·성별·키·몸무게·감량목표)·문진 답변·체성분 기록·상담메모를 AI에 보내 현재 상태 / 문제점 /
+// 관리 방향을 정리받습니다. 이름·전화번호·주소는 보내지 않습니다.
+// 결과는 서버(구글시트 N열)에도 저장되어, 환자를 다시 열면 그대로 보입니다.
+function buildDietPatientDataForAi(r) {
+  const lines = [];
+  let age = '미기재';
+  if (/^\d{4}/.test(r.birthDate || '')) age = (new Date().getFullYear() - parseInt(r.birthDate.slice(0, 4), 10)) + '세';
+  const bmi = calcBMI(editedVitals.height, editedVitals.weight);
+  lines.push('[신상·체형]');
+  lines.push(`나이: ${age} / 성별: ${r.gender || '미기재'}`);
+  lines.push(`키: ${editedVitals.height || '미기재'}cm / 몸무게: ${editedVitals.weight || '미기재'}kg / BMI: ${bmi ? bmi.toFixed(1) : '계산 불가'}`);
+  lines.push(`감량 희망: ${editedVitals.goal ? editedVitals.goal + 'kg' : '미기재'} / 희망 처방 기간: ${r.plan || '미기재'}`);
+  const ms = collectDietPatientMeasurements(r);
+  if (ms.length) {
+    lines.push('');
+    lines.push('[체성분 측정 기록 (날짜: 체중 / 골격근량 / 체지방량)]');
+    ms.forEach(m => lines.push(`${m.d}: ${m.w != null ? m.w + 'kg' : '-'} / ${m.smm != null ? m.smm + 'kg' : '-'} / ${m.bf != null ? m.bf + 'kg' : '-'}${m.src === 'self' ? ' (환자 자가측정)' : ''}`));
+  }
+  lines.push('');
+  lines.push('[다이어트 문진 답변]');
+  lines.push((hasEditableDietAnswers ? buildDietSummary(dietAnswers) : r.summary) || '(답변 없음)');
+  lines.push('');
+  lines.push('[원장 상담메모]');
+  lines.push(dietNotes.memo || '(없음)');
+  return lines.join('\n');
+}
+
+function runDietAiAnalyze(rowNum) {
+  const status = document.getElementById('diet-ai-status');
+  const resultEl = document.getElementById('diet-ai-result');
+  const btn = document.getElementById('diet-ai-run-btn');
+  if (btn) btn.disabled = true;
+  if (status) { status.textContent = 'AI가 분석 중입니다... (10~20초 정도 걸릴 수 있어요)'; status.className = 'ai-status'; }
+  if (resultEl) resultEl.innerHTML = '';
+
+  const r = dietRecords[selectedDietIdx];
+  const payload = { action: 'diet_ai_analyze', key: adminKey, rowNum: rowNum, patientData: buildDietPatientDataForAi(r) };
+
+  fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
+    .then(res => res.json())
+    .then(data => {
+      if (btn) btn.disabled = false;
+      if (!data || data.status !== 'ok') {
+        if (status) { status.textContent = (data && data.message) || 'AI 분석에 실패했습니다.'; status.className = 'ai-status err'; }
+        return;
+      }
+      if (r && r.rowNum === rowNum) r.aiResult = JSON.stringify(data.result); // 구글시트에도 이미 저장됨 - 화면에서도 바로 반영
+      if (status) status.textContent = '';
+      if (resultEl) resultEl.innerHTML = renderDietAiResult(data.result);
+      if (btn) btn.textContent = '🤖 AI 다이어트 분석 다시 실행';
+    })
+    .catch(() => {
+      if (btn) btn.disabled = false;
+      if (status) { status.textContent = '서버에 연결하지 못했습니다. 네트워크를 확인해주세요.'; status.className = 'ai-status err'; }
+    });
+}
+
+function renderDietAiResult(a) {
+  const arr = v => Array.isArray(v) ? v.filter(Boolean) : [];
+  let h = '';
+  if (a.current_status) h += `<div class="dai-sec"><h4>📍 현재 상태</h4><div class="dai-status">${esc(a.current_status)}</div></div>`;
+  const problems = arr(a.problems);
+  if (problems.length) {
+    h += `<div class="dai-sec"><h4>⚠️ 문제점</h4>`;
+    problems.forEach(p => {
+      h += `<div class="dai-item prob"><b>${esc(p.title || '')}</b>${p.detail ? `<div>${esc(p.detail)}</div>` : ''}${p.evidence ? `<div class="dai-ev">근거: ${esc(p.evidence)}</div>` : ''}</div>`;
+    });
+    h += `</div>`;
+  }
+  const solutions = arr(a.solutions);
+  if (solutions.length) {
+    h += `<div class="dai-sec"><h4>✅ 관리 방향</h4>`;
+    solutions.forEach(p => { h += `<div class="dai-item sol"><b>${esc(p.title || '')}</b>${p.detail ? `<div>${esc(p.detail)}</div>` : ''}</div>`; });
+    h += `</div>`;
+  }
+  const safety = arr(a.safety_checks);
+  if (safety.length) h += `<div class="dai-sec"><h4>🛑 처방 전 안전 확인</h4><ul class="dai-safety">${safety.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+  const qs = arr(a.questions_to_ask);
+  if (qs.length) {
+    const qLines = qs.map(q => {
+      const questionText = typeof q === 'string' ? q : (q.question || '');
+      const reasonText = typeof q === 'object' && q.reason ? q.reason : '';
+      return `<li>${esc(questionText)}${reasonText ? `<div class="ai-q-reason">${esc(reasonText)}</div>` : ''}</li>`;
+    }).join('');
+    h += `<div class="ai-questions"><h4>상담 때 추가로 확인하면 좋은 질문</h4><ul>${qLines}</ul></div>`;
+  }
+  return h;
+}
+
+function renderDietAiBox(r) {
+  let saved = null;
+  try { saved = r.aiResult ? JSON.parse(r.aiResult) : null; } catch (e) { saved = null; }
+  return `<div class="side-box ai">
+    <div class="side-box-hdr"><h3>✨ AI 다이어트 분석</h3></div>
+    <button class="ai-run-btn" id="diet-ai-run-btn" onclick="runDietAiAnalyze(${r.rowNum})">🤖 ${saved ? 'AI 다이어트 분석 다시 실행' : 'AI 다이어트 분석 실행'}</button>
+    <div class="ai-note">신상·문진 답변·체성분 기록·상담메모를 바탕으로 현재 상태, 문제점, 관리 방향을 정리합니다. 참고자료이며 최종 판단은 원장님이 직접 해주세요.</div>
+    <div class="ai-status" id="diet-ai-status"></div>
+    <div id="diet-ai-result">${saved ? renderDietAiResult(saved) : ''}</div>
+  </div>`;
 }
 
 function saveDietAll(rowNum) {

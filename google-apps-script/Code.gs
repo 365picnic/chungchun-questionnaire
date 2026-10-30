@@ -54,6 +54,10 @@ function doPost(e) {
   if (data.action === 'quick_add') {
     return handleQuickAdd_(data);
   }
+  // 관리자페이지 다이어트문진 탭의 "AI 다이어트 분석" 버튼
+  if (data.action === 'diet_ai_analyze') {
+    return handleDietAiAnalyze_(data);
+  }
   // 다이어트 문진(diet.html)에서 접수된 신규 제출 - 별도 시트에 저장
   if (data.formType === 'diet') {
     return handleDietSubmit_(data);
@@ -124,6 +128,112 @@ function handleDietSubmit_(data) {
   sheet.getRange(lastRow, 4).setNumberFormat('@').setValue(data.birth_date || '');
 
   return jsonOutput_({ status: 'ok' });
+}
+
+// 관리자페이지 다이어트문진 탭의 "AI 다이어트 분석" 버튼 — 환자의 신상(나이·성별·키·몸무게·감량목표)과
+// 문진 답변, 원장 상담메모를 Gemini에 보내 현재 상태 / 문제점 / 관리 방향을 정리받습니다.
+// 이름·전화번호·주소는 보내지 않습니다(admin.html의 buildDietPatientDataForAi가 애초에 넣지 않음).
+// 결과는 진단이 아니라 원장님 상담을 돕는 참고자료이며, 해당 환자 줄의 "AI 분석 결과(JSON)" 칸(N열)에
+// 저장해서 나중에 다시 열어도 그대로 보이게 합니다.
+function handleDietAiAnalyze_(data) {
+  if (!data.key || data.key !== ADMIN_KEY) {
+    return jsonOutput_({ status: 'error', message: 'invalid key' });
+  }
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    return jsonOutput_({ status: 'error', message: 'API 키가 설정되지 않았습니다. Apps Script 편집기 좌측 톱니바퀴(프로젝트 설정) > 스크립트 속성에 GEMINI_API_KEY를 추가해주세요.' });
+  }
+
+  var systemPrompt =
+    '당신은 한의원 다이어트 클리닉 원장의 상담 준비를 돕는 보조 도구입니다. 아래 환자의 신상·체형 정보와 ' +
+    '다이어트 문진 답변, 원장 상담메모를 분석해서 원장이 상담 전에 빠르게 파악할 수 있도록 정리하세요. ' +
+    '진단이나 처방을 확정하는 것이 아니라 참고자료이며, 최종 판단은 반드시 원장이 직접 합니다.\n' +
+    '- current_status: BMI 구간(대한비만학회 기준: 18.5 미만 저체중, 23 미만 정상, 25 미만 비만전단계, ' +
+    '30 미만 1단계 비만, 35 미만 2단계 비만, 그 이상 3단계 비만)과 감량목표의 현실성을 포함해 현재 상태를 3~4문장으로 요약.\n' +
+    '- problems: 체중이 늘었거나 잘 안 빠지는 원인으로 보이는 문제점(식습관·수면·스트레스·음주·수분·배변 등). ' +
+    '각 문제마다 문진 답변 중 어떤 근거에서 그렇게 판단했는지 evidence에 적으세요. 중요한 순서대로 3~6개.\n' +
+    '- solutions: 문제점별 생활 관리·상담 방향(환자에게 어떻게 설명하고 무엇을 실천시킬지). 3~6개.\n' +
+    '- safety_checks: 임신·수유, 심장·갑상선·간·콩팥 질환, 정신과 약·수면제·식욕억제제 복용, 이전 한약·보조제 부작용, ' +
+    '카페인 민감, 불면 등 다이어트 한약 처방 전에 원장이 반드시 확인할 안전 관련 사항. 없으면 빈 배열.\n' +
+    '- questions_to_ask: 판단이 애매하거나 정보가 부족해서 상담 때 추가로 물어보면 좋은 질문과 그 이유. 1~4개.\n' +
+    '문진 답변에 근거한 내용만 쓰고, 답이 없는 부분은 추측하지 말고 questions_to_ask로 돌리세요. ' +
+    '몇 kg이 빠질지 숫자로 단정하지 마세요. 간결한 한국어로 쓰세요.\n' +
+    '반드시 아래 JSON 형식으로만 응답하고, 코드블록 표시(```) 없이 순수 JSON 텍스트만 출력하세요.\n' +
+    '{"current_status":"...",' +
+    '"problems":[{"title":"문제점(짧게)","evidence":"문진 근거","detail":"왜 문제인지 1~2문장"}],' +
+    '"solutions":[{"title":"관리 방향(짧게)","detail":"구체적인 방법 1~2문장"}],' +
+    '"safety_checks":["확인할 사항"],' +
+    '"questions_to_ask":[{"question":"질문","reason":"이유"}]}';
+
+  var result = callGeminiJson_(apiKey, systemPrompt, '환자 정보:\n' + (data.patientData || ''));
+  if (result.error) {
+    return jsonOutput_({ status: 'error', message: result.error });
+  }
+
+  var rowNum = parseInt(data.rowNum, 10);
+  if (rowNum) {
+    var sheet = getOrCreateDietSheet_();
+    ensureDietAiColumn_(sheet);
+    if (rowNum >= 2 && rowNum <= sheet.getLastRow()) {
+      sheet.getRange(rowNum, 14).setValue(JSON.stringify(result.json));
+    }
+  }
+  return jsonOutput_({ status: 'ok', result: result.json });
+}
+
+// Gemini에 요청을 보내 JSON 응답을 받아옵니다. 성공하면 {json: ...}, 실패하면 {error: '이유'}를 돌려줍니다.
+// (handleAiRecommend_와 같은 모델·재시도 방식을 사용합니다.)
+function callGeminiJson_(apiKey, systemPrompt, userText) {
+  var payload = {
+    contents: [{ role: 'user', parts: [{ text: userText }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: {
+      maxOutputTokens: 8000,
+      thinkingConfig: { thinkingLevel: 'low' }
+    }
+  };
+  var model = 'gemini-3.6-flash';
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + encodeURIComponent(apiKey);
+
+  var res, code, bodyText;
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    try {
+      res = UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+    } catch (err) {
+      return { error: 'Gemini API 호출 실패: ' + err.message };
+    }
+    code = res.getResponseCode();
+    bodyText = res.getContentText();
+    if (code !== 503 && code !== 429) break;
+    if (attempt < 3) Utilities.sleep(1500 * attempt);
+  }
+  if (code !== 200) {
+    return { error: 'Gemini API 오류(' + code + ')' };
+  }
+
+  var text = '';
+  try {
+    var parsed = JSON.parse(bodyText);
+    text = parsed.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('');
+    var jsonStart = text.indexOf('{');
+    var jsonEnd = text.lastIndexOf('}');
+    var cleaned = (jsonStart >= 0 && jsonEnd > jsonStart) ? text.slice(jsonStart, jsonEnd + 1) : text.trim();
+    return { json: JSON.parse(cleaned) };
+  } catch (e) {
+    return { error: 'AI 응답을 해석하지 못했습니다.' };
+  }
+}
+
+// 다이어트문진응답 시트에 N열(AI 분석 결과) 헤더가 없으면 추가합니다.
+function ensureDietAiColumn_(sheet) {
+  if (!sheet.getRange(1, 14).getValue()) {
+    sheet.getRange(1, 14).setValue('AI 분석 결과(JSON)').setFontWeight('bold');
+  }
 }
 
 // 관리자페이지(admin.html)에서 "저장" 버튼을 눌렀을 때 실행되는 부분.
@@ -374,7 +484,7 @@ function doGetDiet_() {
   if (lastRow < 2) {
     return jsonOutput_([]);
   }
-  var values = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
   var records = values.map(function (row, i) {
     return {
       rowNum: i + 2,
@@ -390,7 +500,8 @@ function doGetDiet_() {
       address: row[9],
       summary: row[10],
       raw: row[11],
-      doctorNotes: row[12]
+      doctorNotes: row[12],
+      aiResult: row[13]
     };
   }).reverse();
   return jsonOutput_(records);
