@@ -129,6 +129,29 @@ body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; backgrou
     .content { padding: 0 !important; overflow: visible !important; }
     .q-section { break-inside: avoid; }
 }
+
+/* 복용안내문 모달 */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2000; align-items:center; justify-content:center; }
+.modal-overlay.show { display:flex; }
+.modal-box { background:#fff; border-radius:8px; padding:24px; width:480px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,0.25); }
+.modal-title { font-size:15px; font-weight:700; color:#1a3a6b; margin-bottom:18px; padding-bottom:10px; border-bottom:2px solid #1a3a6b; }
+.modal-row { display:flex; gap:10px; margin-bottom:12px; align-items:center; }
+.modal-row label { min-width:100px; font-size:12px; color:#555; font-weight:600; flex-shrink:0; }
+.modal-row input, .modal-row select, .modal-row textarea { flex:1; padding:7px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; font-family:inherit; }
+.modal-row textarea { min-height:80px; resize:vertical; }
+.modal-row .unit { font-size:12px; color:#555; white-space:nowrap; margin-left:4px; }
+.modal-btns { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; border-top:1px solid #eee; padding-top:14px; }
+.modal-btns button { padding:8px 20px; border-radius:4px; border:none; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-cancel { background:#eee; color:#666; }
+.btn-cancel:hover { background:#ddd; }
+.btn-generate { background:#1a3a6b; color:#fff; }
+.btn-generate:hover { background:#0f274d; }
+.modal-type-btns { display:flex; gap:8px; flex:1; }
+.modal-type-btn { flex:1; padding:7px; border:1.5px solid #ccc; border-radius:4px; cursor:pointer; text-align:center; font-size:12px; color:#666; transition:all 0.15s; }
+.modal-type-btn.active { border-color:#1a3a6b; background:#e0eaf6; color:#1a3a6b; font-weight:700; }
+.btn-herbal { background:#1a3a6b; color:#fff; border:none; padding:7px 14px; border-radius:4px; cursor:pointer; font-size:12px; }
+.btn-herbal:hover { background:#0f274d; }
+.modal-hint { font-size:11px; color:#e74c3c; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -338,6 +361,7 @@ async function showDetail(pid) {
                 <span class="pt-name">${p.name}<span class="age">(${age||'?'}세)</span></span>
             </div>
             <div class="pt-right">
+                <button class="btn-herbal" onclick="openHerbalModal(${p.id}, '${p.name.replace(/'/g,"\\'")}', ${age||0})">복용안내문</button>
                 <button class="btn-print" onclick="window.print()">인쇄</button>
             </div>
         </div>
@@ -558,6 +582,263 @@ function setupAutoRefresh() {
 
 loadList();
 setupAutoRefresh();
+
+// ===== 복용안내문 발급 =====
+let _herbalType = 'adult';
+
+function openHerbalModal(pid, name, age) {
+    document.getElementById('hm-name').value = name;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const dd = String(today.getDate()).padStart(2,'0');
+    document.getElementById('hm-date').value = `${yyyy}-${mm}-${dd}`;
+    // 15세 미만이면 어린이 자동 선택
+    setHerbalType(age > 0 && age < 15 ? 'child' : 'adult');
+    document.getElementById('hm-notes').value = '';
+    document.getElementById('herbal-modal').classList.add('show');
+}
+
+function closeHerbalModal() {
+    document.getElementById('herbal-modal').classList.remove('show');
+}
+
+function setHerbalType(type) {
+    _herbalType = type;
+    document.getElementById('hm-type-adult').classList.toggle('active', type === 'adult');
+    document.getElementById('hm-type-child').classList.toggle('active', type === 'child');
+}
+
+function generateHerbalGuide() {
+    const name = document.getElementById('hm-name').value;
+    const dateVal = document.getElementById('hm-date').value;
+    const times = document.getElementById('hm-times').value;
+    const packs = document.getElementById('hm-packs').value;
+    const days = document.getElementById('hm-days').value;
+    const notes = document.getElementById('hm-notes').value.trim();
+
+    let dateStr = '';
+    if (dateVal) {
+        const d = new Date(dateVal + 'T00:00:00');
+        dateStr = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`;
+    }
+
+    const html = buildHerbalHTML(_herbalType, name, dateStr, times, packs, days, notes);
+    closeHerbalModal();
+
+    // 팝업 차단 우회: iframe으로 인쇄
+    let frame = document.getElementById('_herbal-print-frame');
+    if (frame) frame.remove();
+    frame = document.createElement('iframe');
+    frame.id = '_herbal-print-frame';
+    frame.style.cssText = 'position:fixed;width:0;height:0;border:none;opacity:0;pointer-events:none;';
+    document.body.appendChild(frame);
+    frame.addEventListener('load', function() {
+        try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch(e) {}
+    });
+    frame.srcdoc = html;
+}
+
+function buildHerbalHTML(type, name, dateStr, times, packs, days, notes) {
+    const logoUrl = window.location.origin + '/static/청춘한의원_로고-01.png';
+    const isChild = type === 'child';
+    const eName = name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const greeting1 = isChild
+        ? `<span class="pt-nm">${eName}</span> 어린이의 몸과 마음이 더욱 튼튼해지도록 정성껏 처방하였습니다.`
+        : `<span class="pt-nm">${eName}</span> 님의 몸과 마음이 더욱 건강해지도록 정성껏 처방하였습니다.`;
+    const greeting2 = isChild
+        ? `보호자님께서도 긍정적인 마음으로 아이와 함께 탕약을 챙겨주세요.`
+        : `<span class="pt-nm">${eName}</span> 님께서도 긍정적인 생각으로 탕약을 복용하여 주세요.`;
+
+    const footer = isChild
+        ? `늘 저희 한의원을 아껴주시는 마음에 깊이 감사드리며, 아이가 늘 건강하고 밝게 자라도록 정성껏 돌보겠습니다.<br>항상 가정에 건강과 행복이 가득하시길 바랍니다.`
+        : `늘 저희 한의원을 아껴주시는 마음에 깊이 감사드리며, 사랑과 정성으로 보답하는 한의원이 되겠습니다.<br>항상 건강하시길 바랍니다.`;
+
+    const sec1title = isChild ? '◆ 복용 방법 및 팁' : '◆ 복용 방법';
+    const sec1 = isChild ? `
+        <ul>
+            <li>약은 따뜻하게 주셔도 좋고 미지근하게 주셔도 좋습니다. 다만 아이가 소화가 잘 안되거나 배가 아파한다면 따뜻하게 먹이는 것이 좋습니다.</li>
+            <li>한약 시간이 지나면서 흙처럼 보이는 침전물이 생기는 것은 흙이 아니라 수용성 고형분으로 자연스러운 것입니다. 잘 흔들어서 먹이시면 됩니다.</li>
+        </ul>
+        <div class="tip-box">(Tip) 한약 맛이 낯설어하는 아이라면, 복용 후 올리고당이나 꿀(만 1세 이상), 사과즙 등을 살짝 섞어 주시거나, 약을 다 먹은 뒤 좋아하는 과일이나 물을 한 모금 마시게 해주면 도움이 됩니다.</div>
+    ` : `
+        <ul>
+            <li>약은 따뜻하게 드셔도 좋고 미지근하게 드셔도 좋습니다. 다만 소화가 잘 안되시면 따뜻하게 드시는 것이 좋습니다.</li>
+            <li>약이 시간이 지나면서 흙처럼 보이는 침전물이 생기는 것은 흙이 아니라 수용성 고형분으로 자연스러운 것입니다. 잘 흔들어서 드시면 됩니다.</li>
+        </ul>
+    `;
+    const sec2 = isChild ? `
+        <ul>
+            <li>한약 먹이면서 특별히 가려야 할 음식은 없습니다.</li>
+            <li>동의보감 등 옛 한의학 서적에서는 한약 복용 시 특별히 가려야 하는 음식을 정해놓지 않았습니다. 한약은 아이의 체질과 증상에 맞으면 음식과 상관없이 효과를 보게 되어 있습니다.</li>
+            <li>다만 찬 음식, 패스트푸드, 인스턴트식품 및 자극적인 간식은 가급적 피해주세요.</li>
+            <li><strong>양약을 같이 먹이는 경우 :</strong> 양약을 한약과 2시간 간격으로 띄어 먹이시면 아무런 문제가 없습니다.</li>
+        </ul>
+    ` : `
+        <ul>
+            <li>한약 드시면서 특별히 가려야 할 음식은 없습니다.</li>
+            <li>동의보감 등 옛 한의학 서적에서는 한약 복용시 특별히 가려야 하는 음식을 정해놓지 않았습니다. 한약은 체질과 증상에 맞으면 음식과 상관없이 효과를 보게 되어 있습니다.</li>
+            <li>다만 인스턴트식품 및 과도한 음주, 흡연, 스트레스 등은 피해 주세요.</li>
+            <li><strong>양약을 같이 드시는 경우 :</strong> 양약을 한약과 2시간 간격으로 띄어 드시면 아무런 문제가 없습니다.</li>
+        </ul>
+    `;
+    const warning = isChild ? `
+        <ul>
+            <li>다음과 같은 경우, 이 약의 복용을 중지하고 반드시 한의원으로 연락 주시기 바랍니다.</li>
+            <li><strong>자율신경증상</strong>(불면, 땀 과다, 고열, 두근거림 등), <strong>소화기계</strong>(식욕부진, 복통, 구토, 설사 등), <strong>피부증상</strong>(발진, 두드러기 등)이 나타난 경우.</li>
+        </ul>
+    ` : `
+        <ul>
+            <li>다음과 같은 경우, 이 약의 복용을 중지하고 반드시 연락주시기 바랍니다.</li>
+            <li><strong>자율신경증상</strong>(불면, 땀 과다, 고열, 빈맥, 두근거림, 변을 자주 봄, 전신무력감, 정신흥분 등), <strong>소화기계</strong>(식욕부진, 위부불쾌감, 복통, 구토, 구역감 등), <strong>비뇨기계증상</strong>(배뇨장애 등), <strong>피부증상</strong>(발진 등)이 나타난 경우.</li>
+        </ul>
+    `;
+
+    const notesHTML = notes
+        ? `<div style="color:#c0392b;font-size:13px;line-height:1.9;margin-bottom:18px;padding:10px 14px;border-left:3px solid #c0392b;background:#fff5f5;">${notes.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>`
+        : '';
+
+    return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>한약 복용 안내문 - ${eName}</title>
+<style>
+@media print { @page { size: A4; margin: 15mm 15mm 18mm; } }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; color:#222; background:#fff; padding:32px 36px; max-width:760px; margin:0 auto; font-size:14px; }
+.logo-row { margin-bottom:12px; }
+.logo-row img { height:52px; }
+.title-row { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2.5px solid #2d5fa6; padding-bottom:8px; margin-bottom:22px; }
+.title-row h1 { font-size:30px; font-weight:900; letter-spacing:-0.5px; }
+.title-row .date { font-size:13px; color:#444; }
+.greeting { text-align:center; margin-bottom:20px; font-size:15px; line-height:2.2; }
+.greeting .pt-nm { text-decoration:underline; font-weight:700; color:#2d5fa6; }
+.info-box { display:flex; background:#2d5fa6; border-radius:6px; overflow:hidden; margin-bottom:18px; }
+.info-col { flex:1; padding:14px 10px; text-align:center; border-right:1px solid rgba(255,255,255,0.2); color:#fff; }
+.info-col:last-child { border-right:none; }
+.info-col .lbl { font-size:12px; opacity:0.88; margin-bottom:7px; }
+.info-col .val { font-size:26px; font-weight:900; }
+.info-col .val small { font-size:14px; font-weight:500; margin-left:2px; }
+.section { margin-bottom:16px; }
+.section-title { font-size:14px; font-weight:700; color:#1a3a6b; padding:6px 0; border-bottom:1px solid #ddd; margin-bottom:9px; }
+ul { padding-left:20px; }
+li { margin-bottom:7px; line-height:1.65; font-size:13px; }
+.tip-box { background:#f0f4fc; border-radius:4px; padding:10px 14px; font-size:12.5px; line-height:1.65; margin-top:9px; color:#444; }
+.warning-box { background:#f5f5f5; border:1px solid #ddd; border-left:3px solid #3a7bd5; border-radius:4px; padding:14px 16px; margin-bottom:22px; }
+.warning-title { font-size:14px; font-weight:700; color:#1a3a6b; margin-bottom:9px; }
+.footer { text-align:center; margin-top:22px; padding-top:16px; border-top:1px solid #eee; font-size:13.5px; line-height:2.1; color:#333; }
+.footer-logo { margin-top:14px; }
+.footer-logo img { height:42px; }
+</style>
+</head>
+<body>
+<div class="logo-row"><img src="${logoUrl}" alt="청춘한의원"></div>
+<div class="title-row">
+    <h1>한약 복용 안내문</h1>
+    <div class="date">처방일 ${dateStr}</div>
+</div>
+<div class="greeting">
+    ${greeting1}<br>
+    ${greeting2}
+</div>
+<div class="info-box">
+    <div class="info-col">
+        <div class="lbl">하루 복용</div>
+        <div class="val">${times}<small>번</small></div>
+    </div>
+    <div class="info-col">
+        <div class="lbl">총 팩수</div>
+        <div class="val">${packs}<small>팩</small></div>
+    </div>
+    <div class="info-col">
+        <div class="lbl">복용 기간</div>
+        <div class="val">${days}<small>일분</small></div>
+    </div>
+</div>
+${notesHTML}
+<div class="section">
+    <div class="section-title">${sec1title}</div>
+    ${sec1}
+</div>
+<div class="section">
+    <div class="section-title">◆ 식습관 및 양약 복용 안내</div>
+    ${sec2}
+</div>
+<div class="section">
+    <div class="section-title">◆ 안전한 한약재 사용</div>
+    <ul>
+        <li>식약청 한약재 안전검사를 통과한 믿을 수 있는 한약재만을 사용합니다.</li>
+        <li>모든 한약은 달이기 전에 2회에 걸쳐 깐깐하고 깨끗하게 세척합니다. 깨끗하고 안전한 한약, 약맛도 약 효과도 다릅니다.</li>
+    </ul>
+</div>
+<div class="section">
+    <div class="section-title">◆ 보관 방법</div>
+    <ul>
+        <li>한약은 진공밀봉에 포장되어 실온보관시 3개월, 냉장보관시 6개월가량 신선하게 유지될 수 있습니다.</li>
+        <li>직사광선이 비치지 않는 선선한 곳에서 보관하시고, 가능하면 냉장보관 하시는 것이 좋습니다.</li>
+    </ul>
+</div>
+<div class="warning-box">
+    <div class="warning-title">◆ 복용 중지 및 문의 안내</div>
+    ${warning}
+</div>
+<div class="footer">
+    ${footer}
+    <div class="footer-logo"><img src="${logoUrl}" alt="청춘한의원"></div>
+</div>
+</body>
+</html>`;
+}
 </script>
+
+<!-- 복용안내문 발급 모달 -->
+<div class="modal-overlay" id="herbal-modal" onclick="if(event.target===this)closeHerbalModal()">
+    <div class="modal-box">
+        <div class="modal-title">한약 복용안내문 발급</div>
+        <div class="modal-row">
+            <label>환자명</label>
+            <input type="text" id="hm-name" readonly style="background:#f5f5f5;color:#555;">
+        </div>
+        <div class="modal-row">
+            <label>처방일</label>
+            <input type="date" id="hm-date">
+        </div>
+        <div class="modal-row">
+            <label>구분</label>
+            <div class="modal-type-btns">
+                <div class="modal-type-btn active" id="hm-type-adult" onclick="setHerbalType('adult')">성인</div>
+                <div class="modal-type-btn" id="hm-type-child" onclick="setHerbalType('child')">어린이</div>
+            </div>
+        </div>
+        <div class="modal-row">
+            <label>하루 복용 횟수</label>
+            <input type="number" id="hm-times" value="3" min="1" max="5" style="width:70px;flex:none;">
+            <span class="unit">번</span>
+        </div>
+        <div class="modal-row">
+            <label>총 팩수</label>
+            <input type="number" id="hm-packs" value="45" min="1" style="width:80px;flex:none;">
+            <span class="unit">팩</span>
+        </div>
+        <div class="modal-row">
+            <label>복용 기간</label>
+            <input type="number" id="hm-days" value="15" min="1" style="width:80px;flex:none;">
+            <span class="unit">일분</span>
+        </div>
+        <div class="modal-row" style="align-items:flex-start;">
+            <label style="padding-top:4px;">추가 메모<div class="modal-hint">빨간 글씨로 표시</div></label>
+            <textarea id="hm-notes" placeholder="원장님 추가 안내사항을 입력하세요.&#10;예) 취침 전 복용은 피해주세요."></textarea>
+        </div>
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeHerbalModal()">취소</button>
+            <button class="btn-generate" onclick="generateHerbalGuide()">미리보기 &amp; 출력</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
