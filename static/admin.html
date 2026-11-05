@@ -650,12 +650,16 @@ function closePreview() {
 
 function printPreview() {
     const iframe = document.getElementById('preview-iframe');
+    const pdfTitle = iframe.contentDocument ? iframe.contentDocument.title : '';
+    const origTitle = document.title;
+    if (pdfTitle) document.title = pdfTitle;
     try {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
     } catch(e) {
         alert('인쇄 오류: ' + e.message);
     }
+    setTimeout(() => { document.title = origTitle; }, 2000);
 }
 
 function buildHerbalHTML(type, name, dateStr, times, packs, days, notes, dateVal) {

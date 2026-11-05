@@ -2836,7 +2836,11 @@ function closePreview() { document.getElementById('herbal-preview-overlay').clas
 
 function printPreview() {
   var iframe = document.getElementById('herbal-preview-iframe');
+  var pdfTitle = iframe.contentDocument ? iframe.contentDocument.title : '';
+  var origTitle = document.title;
+  if (pdfTitle) document.title = pdfTitle;
   try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { alert('인쇄 오류: ' + e.message); }
+  setTimeout(function() { document.title = origTitle; }, 2000);
 }
 
 function generateHerbalGuide() {
