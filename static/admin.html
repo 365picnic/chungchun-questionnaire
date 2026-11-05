@@ -130,6 +130,17 @@ body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; backgrou
     .q-section { break-inside: avoid; }
 }
 
+/* 복용안내문 미리보기 오버레이 */
+.preview-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:3000; flex-direction:column; }
+.preview-overlay.show { display:flex; }
+.preview-toolbar { background:#1a3a6b; padding:10px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.preview-toolbar .title { color:#fff; font-size:14px; font-weight:600; }
+.preview-toolbar .tb-btns { display:flex; gap:10px; }
+.btn-do-print { background:#27ae60; color:#fff; border:none; padding:8px 20px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600; }
+.btn-close-preview { background:rgba(255,255,255,0.15); color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+.preview-frame-wrap { flex:1; overflow:hidden; background:#ccc; }
+.preview-frame-wrap iframe { width:100%; height:100%; border:none; background:#fff; }
+
 /* 복용안내문 모달 */
 .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2000; align-items:center; justify-content:center; }
 .modal-overlay.show { display:flex; }
@@ -626,20 +637,25 @@ function generateHerbalGuide() {
     const html = buildHerbalHTML(_herbalType, name, dateStr, times, packs, days, notes);
     closeHerbalModal();
 
-    // 팝업 차단 우회: iframe으로 인쇄
-    let frame = document.getElementById('_herbal-print-frame');
-    if (frame) frame.remove();
-    frame = document.createElement('iframe');
-    frame.id = '_herbal-print-frame';
-    frame.style.cssText = 'position:fixed;width:0;height:0;border:none;opacity:0;pointer-events:none;';
-    document.body.appendChild(frame);
-    frame.addEventListener('load', function() {
-        try {
-            frame.contentWindow.focus();
-            frame.contentWindow.print();
-        } catch(e) {}
-    });
-    frame.srcdoc = html;
+    // 미리보기 오버레이에 표시
+    const overlay = document.getElementById('preview-overlay');
+    const iframe = document.getElementById('preview-iframe');
+    overlay.classList.add('show');
+    iframe.srcdoc = html;
+}
+
+function closePreview() {
+    document.getElementById('preview-overlay').classList.remove('show');
+}
+
+function printPreview() {
+    const iframe = document.getElementById('preview-iframe');
+    try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    } catch(e) {
+        alert('인쇄 오류: ' + e.message);
+    }
 }
 
 function buildHerbalHTML(type, name, dateStr, times, packs, days, notes) {
@@ -795,6 +811,20 @@ ${notesHTML}
 </html>`;
 }
 </script>
+
+<!-- 복용안내문 미리보기 오버레이 -->
+<div class="preview-overlay" id="preview-overlay">
+    <div class="preview-toolbar">
+        <span class="title">한약 복용안내문 미리보기</span>
+        <div class="tb-btns">
+            <button class="btn-do-print" onclick="printPreview()">🖨️ 인쇄 / PDF 저장</button>
+            <button class="btn-close-preview" onclick="closePreview()">✕ 닫기</button>
+        </div>
+    </div>
+    <div class="preview-frame-wrap">
+        <iframe id="preview-iframe" title="복용안내문 미리보기"></iframe>
+    </div>
+</div>
 
 <!-- 복용안내문 발급 모달 -->
 <div class="modal-overlay" id="herbal-modal" onclick="if(event.target===this)closeHerbalModal()">
