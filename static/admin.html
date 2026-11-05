@@ -715,7 +715,7 @@ function buildHerbalHTML(type, name, dateStr, times, packs, days, notes) {
     `;
 
     const notesHTML = notes
-        ? `<div style="color:#c0392b;font-size:13px;line-height:1.9;margin-bottom:18px;padding:10px 14px;border-left:3px solid #c0392b;background:#fff5f5;">${notes.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>`
+        ? `<div style="color:#c0392b;font-size:13px;line-height:1.9;margin-bottom:30px;padding:10px 14px;border-left:3px solid #c0392b;background:#fff5f5;">${notes.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>`
         : '';
 
     return `<!DOCTYPE html>
