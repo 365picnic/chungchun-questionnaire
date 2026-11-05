@@ -634,7 +634,7 @@ function generateHerbalGuide() {
         dateStr = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`;
     }
 
-    const html = buildHerbalHTML(_herbalType, name, dateStr, times, packs, days, notes);
+    const html = buildHerbalHTML(_herbalType, name, dateStr, times, packs, days, notes, dateVal);
     closeHerbalModal();
 
     // 미리보기 오버레이에 표시
@@ -658,10 +658,15 @@ function printPreview() {
     }
 }
 
-function buildHerbalHTML(type, name, dateStr, times, packs, days, notes) {
+function buildHerbalHTML(type, name, dateStr, times, packs, days, notes, dateVal) {
     const logoUrl = window.location.origin + '/static/청춘한의원_로고-01.png';
     const isChild = type === 'child';
     const eName = name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let pdfTitle = eName;
+    if (dateVal) {
+        const p = dateVal.split('-');
+        pdfTitle = eName + p[0].slice(2) + p[1] + p[2];
+    }
 
     const greeting1 = isChild
         ? `<span class="pt-nm">${eName}</span> 어린이의 몸과 마음이 더욱 튼튼해지도록 정성껏 처방하였습니다.`
@@ -722,7 +727,7 @@ function buildHerbalHTML(type, name, dateStr, times, packs, days, notes) {
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>한약 복용 안내문 - ${eName}</title>
+<title>${pdfTitle}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css">
 <style>
 @media print { @page { size: A4; margin: 8mm 10mm; } }
