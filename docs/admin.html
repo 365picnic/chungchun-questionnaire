@@ -668,6 +668,15 @@ function formatPhone(v) {
   if (/^[1-9][0-9]{8,9}$/.test(s)) s = '0' + s;
   return s;
 }
+function maskPhone(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  const parts = s.split('-');
+  if (parts.length >= 2) return parts[0] + '-****-****';
+  if (/^010\d{7,8}$/.test(s)) return '010-****-****';
+  if (/^0[2-9]\d{7,8}$/.test(s)) return s.slice(0, 2) + '-****-****';
+  return s.slice(0, 3) + '-****-****';
+}
 function normalizeRecord(r) { return Object.assign({}, r, { phone: formatPhone(r.phone) }); }
 
 // 목록/상세에서 성별 태그 옆에 "소아" 표시를 붙일지 판단 (growth-data.js의 isChildAge, 만 15세 이하).
@@ -825,7 +834,7 @@ function renderList() {
       <span class="p-num">${num}</span>
       <div class="p-body">
         <div class="nm">${esc(r.name || '(이름없음)')}${ageLabel(r)} ${genderTag}${childTagHtml(r)}${visitTag}</div>
-        <div class="inf">${esc(r.phone || '')}</div>
+        <div class="inf">${esc(maskPhone(r.phone))}</div>
         <div class="tm">${dtText}</div>
       </div>
       <button class="p-del" title="삭제" onclick="event.stopPropagation(); deleteRecord(${r.rowNum}, '${escJsAttr(r.name || '(이름없음)')}')">&#10005;</button>
@@ -1694,7 +1703,7 @@ function renderDetail(i) {
   let h = '';
   h += `<div class="patient-card">
     <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}${childTagHtml(r)}</div>
-    <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
+    <div class="field">전화번호<b>${esc(maskPhone(r.phone) || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">키 / 몸무게 <span class="vital-hint">(수정 가능)</span>
       <b class="vital-edit"><input type="number" step="0.1" class="vital-input" id="vital-height" value="${esc(editedVitals.height)}" oninput="updateVital('height', this.value)"> cm /
@@ -2326,7 +2335,7 @@ function calEventRowHtml(e, kind) {
     : `처방일 ${fmtMD(parseYMD(e.shipDate))} · 전화예정 ${e.callText}`;
   return `<div class="cal-event">
     <div>
-      ${tagHtml}<b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(formatPhone(e.phone) || '')}</span>${e.label ? ' · ' + esc(e.label) : ''}${e.memo ? ' · ' + esc(e.memo) : ''}
+      ${tagHtml}<b>${esc(e.name || '(이름없음)')}</b> <span style="color:var(--ink-500)">${esc(maskPhone(e.phone) || '')}</span>${e.label ? ' · ' + esc(e.label) : ''}${e.memo ? ' · ' + esc(e.memo) : ''}
       <div class="cal-event-sub">${subHtml}</div>
       <div class="cal-event-actions">
         <button class="ship-btn success${e.callStatus === 'success' ? ' on' : ''}" onclick="calSetCallStatus(${e.rowNum}, ${e.isDiet}, ${e.id}, 'success')">◯ 통화 성공</button>
@@ -2657,7 +2666,7 @@ function renderDietDetail(i) {
   let h = '';
   h += `<div class="patient-card">
     <div class="name">${esc(r.name || '(이름없음)')}${r.gender ? `<span class="gender-tag ${genderClass(r.gender)}">${esc(r.gender)}</span>` : ''}${childTagHtml(r)}</div>
-    <div class="field">전화번호<b>${esc(r.phone || '-')}</b></div>
+    <div class="field">전화번호<b>${esc(maskPhone(r.phone) || '-')}</b></div>
     <div class="field">생년월일<b>${esc(r.birthDate || '-')}</b></div>
     <div class="field">희망개월수<b>${esc(r.plan || '-')}</b></div>
     ${renderVisitTypeField(r.rowNum)}
