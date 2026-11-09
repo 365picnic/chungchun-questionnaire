@@ -453,9 +453,33 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 .btn-modal-ok:hover { background:#154360; }
 .btn-modal-cancel { flex:1; background:#f0f0f0; color:#333; border:none; padding:11px; border-radius:8px; font-size:14px; cursor:pointer; }
 }
+
+/* 암호 입력 오버레이 */
+.lock-overlay { display:flex; position:fixed; inset:0; background:var(--brand-1,#1a3a6b); z-index:9999; align-items:center; justify-content:center; }
+.lock-overlay.hidden { display:none; }
+.lock-box { background:#fff; border-radius:16px; padding:44px 40px; width:360px; text-align:center; box-shadow:0 12px 48px rgba(0,0,0,0.35); }
+.lock-logo { font-size:20px; font-weight:800; color:var(--brand-1,#1a3a6b); margin-bottom:6px; }
+.lock-sub { font-size:13px; color:#888; margin-bottom:30px; }
+.lock-box input { width:100%; padding:13px 16px; border:2px solid #ddd; border-radius:8px; font-size:22px; letter-spacing:8px; text-align:center; outline:none; font-family:inherit; transition:border-color 0.2s; }
+.lock-box input:focus { border-color:var(--brand-2,#3a7bd5); }
+.lock-box input.error { border-color:#e74c3c; animation:lock-shake 0.3s; }
+.lock-btn { width:100%; margin-top:14px; padding:13px; background:var(--brand-1,#1a3a6b); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+.lock-btn:hover { opacity:0.88; }
+.lock-err { margin-top:10px; font-size:12px; color:#e74c3c; min-height:18px; }
+@keyframes lock-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
 </style>
 </head>
 <body>
+
+<div class="lock-overlay" id="lockOverlay">
+  <div class="lock-box">
+    <div class="lock-logo">청춘한의원</div>
+    <div class="lock-sub">관리자 페이지</div>
+    <input type="password" id="lockPw" placeholder="암호 입력" maxlength="20" autocomplete="off" oninput="clearLockErr()" onkeydown="if(event.key==='Enter')checkLock()">
+    <button class="lock-btn" onclick="checkLock()">확인</button>
+    <div class="lock-err" id="lockErr"></div>
+  </div>
+</div>
 
 <div id="dash">
   <div class="topbar">
@@ -515,10 +539,31 @@ body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-seri
 // docs/index.html 의 GAS_URL 과 동일한 주소를 사용합니다.
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzp_jMJK3Bq1mfwqa39mYQJdgIdKWkkIrrXaifMD3JY8QvzeWjyIlrpVwG-m7b70-RM/exec";
 
-// 원장님 혼자만 쓰는 페이지라 비밀번호 입력 없이 바로 불러옵니다.
-// Code.gs의 ADMIN_KEY와 같은 값이며, 이 값은 google-apps-script/Code.gs에도
-// 그대로 적혀 있어(그 파일이 이미 공개 저장소에 있음) 별도로 숨겨도 의미가 없습니다.
+// Code.gs의 ADMIN_KEY와 같은 값.
 const adminKey = '3133';
+
+// 암호 입력 화면 처리
+(function() {
+  if (sessionStorage.getItem('cc_admin_auth') === '1') {
+    document.getElementById('lockOverlay').classList.add('hidden');
+  }
+})();
+function checkLock() {
+  const pw = document.getElementById('lockPw').value;
+  if (pw === adminKey) {
+    sessionStorage.setItem('cc_admin_auth', '1');
+    document.getElementById('lockOverlay').classList.add('hidden');
+    loadData();
+    loadDietData();
+  } else {
+    const inp = document.getElementById('lockPw');
+    inp.classList.add('error');
+    document.getElementById('lockErr').textContent = '암호가 맞지 않습니다.';
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('error'), 400);
+  }
+}
+function clearLockErr() { document.getElementById('lockErr').textContent = ''; }
 let records = [];
 let selectedIdx = null;
 
@@ -567,8 +612,11 @@ let calSelectedDate = null;
 // 달력 안에서 인라인으로 수정 중인 처방 기록의 id (없으면 null).
 let calEditingShipId = null;
 
-loadData();
-loadDietData();
+// 이미 인증된 경우에만 바로 데이터 로드 (암호 미입력 시 checkLock()에서 호출)
+if (sessionStorage.getItem('cc_admin_auth') === '1') {
+  loadData();
+  loadDietData();
+}
 
 // ===== 날짜 계산 유틸: 처방일 → 택배 도착 예상일 → 전화 예정일(복용 10일쯤 후) =====
 // 생년월일과 같은 이유로, Date 객체를 시각(시/분/초, 시간대)까지 다루지 않고

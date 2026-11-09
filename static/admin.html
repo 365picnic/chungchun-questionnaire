@@ -130,6 +130,20 @@ body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; backgrou
     .q-section { break-inside: avoid; }
 }
 
+/* 암호 입력 오버레이 */
+.lock-overlay { display:flex; position:fixed; inset:0; background:#1a3a6b; z-index:9999; align-items:center; justify-content:center; }
+.lock-overlay.hidden { display:none; }
+.lock-box { background:#fff; border-radius:12px; padding:40px 36px; width:340px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.35); }
+.lock-logo { font-size:18px; font-weight:800; color:#1a3a6b; margin-bottom:6px; }
+.lock-sub { font-size:13px; color:#888; margin-bottom:28px; }
+.lock-box input { width:100%; padding:12px 16px; border:2px solid #ddd; border-radius:6px; font-size:20px; letter-spacing:6px; text-align:center; outline:none; font-family:inherit; transition:border-color 0.2s; }
+.lock-box input:focus { border-color:#3a7bd5; }
+.lock-box input.error { border-color:#e74c3c; animation:shake 0.3s; }
+.lock-btn { width:100%; margin-top:14px; padding:12px; background:#1a3a6b; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer; transition:background 0.2s; }
+.lock-btn:hover { background:#0f274d; }
+.lock-err { margin-top:10px; font-size:12px; color:#e74c3c; min-height:18px; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
 /* 복용안내문 미리보기 오버레이 */
 .preview-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:3000; flex-direction:column; }
 .preview-overlay.show { display:flex; }
@@ -167,6 +181,16 @@ body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; backgrou
 </head>
 <body>
 
+<div class="lock-overlay" id="lockOverlay">
+    <div class="lock-box">
+        <div class="lock-logo">청춘한의원</div>
+        <div class="lock-sub">관리자 페이지</div>
+        <input type="password" id="lockPw" placeholder="암호 입력" maxlength="20" autocomplete="off" oninput="clearLockErr()" onkeydown="if(event.key==='Enter')checkLock()">
+        <button class="lock-btn" onclick="checkLock()">확인</button>
+        <div class="lock-err" id="lockErr"></div>
+    </div>
+</div>
+
 <div class="topbar">
     <div class="left">
         <span id="clock"></span>
@@ -191,6 +215,32 @@ body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; backgrou
 </div>
 
 <script>
+// 암호 체크
+const ADMIN_PW = '3133';
+(function() {
+    if (sessionStorage.getItem('cc_admin_auth') === '1') {
+        document.getElementById('lockOverlay').classList.add('hidden');
+    }
+})();
+function checkLock() {
+    const pw = document.getElementById('lockPw').value;
+    if (pw === ADMIN_PW) {
+        sessionStorage.setItem('cc_admin_auth', '1');
+        document.getElementById('lockOverlay').classList.add('hidden');
+        loadList();
+    } else {
+        const inp = document.getElementById('lockPw');
+        const err = document.getElementById('lockErr');
+        inp.classList.add('error');
+        err.textContent = '암호가 맞지 않습니다.';
+        inp.value = '';
+        setTimeout(() => inp.classList.remove('error'), 400);
+    }
+}
+function clearLockErr() {
+    document.getElementById('lockErr').textContent = '';
+}
+
 const QL = {
     sleep_main:"잠을", sleep_severity:"못 자는 정도", sleep_wake:"수면 중 각성",
     sleep_important:"내일 중요한 일 있으면?", sleep_imp_freq:"10번이면",
